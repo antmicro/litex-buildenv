@@ -85,12 +85,12 @@ class BaseSoC(SoCCore):
 
         bios_size = 0x8000
         self.add_constant("ROM_DISABLE", 1)
-        self.add_memory_region("rom", kwargs['cpu_reset_address'], bios_size)
+        self.add_linker_region("rom", kwargs['cpu_reset_address'], bios_size)
         self.flash_boot_address = self.mem_map["spiflash"]+platform.gateware_size+bios_size
 
         # We don't have a DRAM, so use the remaining SPI flash for user
         # program.
-        self.add_memory_region("user_flash",
+        self.add_linker_region("user_flash",
             self.flash_boot_address,
             # Leave a grace area- possible one-by-off bug in add_memory_region?
             # Possible fix: addr < origin + length - 1
