@@ -260,6 +260,7 @@ export PATH=$CONDA_DIR/bin:$PATH:/sbin
 	conda update -q conda
 	fix_conda
 	conda config --system --add channels timvideos
+	conda config --system --prepend channels antmicro
 	conda info
 )
 
@@ -482,15 +483,9 @@ echo "---------------------------------------"
 
 # binutils for the target
 echo
-echo "Installing binutils for ${CPU_ARCH} (assembler, linker, and other tools)"
-conda install -y $CONDA_FLAGS binutils-${CPU_ARCH}-elf=$BINUTILS_VERSION
-check_version ${CPU_ARCH}-elf-ld $BINUTILS_VERSION
-
-# gcc for the target
-echo
-echo "Installing gcc for ${CPU_ARCH} ('bare metal' C cross compiler)"
-conda install -y $CONDA_FLAGS gcc-${CPU_ARCH}-elf-nostdc=$GCC_VERSION
-check_version ${CPU_ARCH}-elf-gcc $GCC_VERSION
+echo "Installing toolchain for ${CPU_ARCH} (assembler, linker, compiler and other tools)"
+conda install -y $CONDA_FLAGS toolchain-${CPU_ARCH}-elf-nostdc=$TOOLCHAIN_VERSION
+check_version ${CPU_ARCH}-elf-gcc $TOOLCHAIN_VERSION
 
 # gdb for the target
 #echo

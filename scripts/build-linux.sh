@@ -45,11 +45,11 @@ fi
 
 # Install a baremetal toolchain with the newlib standard library
 if ! ${CPU_ARCH}-elf-newlib --version > /dev/null 2>&1; then
-	conda install gcc-${CPU_ARCH}-elf-newlib
+	conda install toolchain-${CPU_ARCH}-elf-newlib
 fi
 # Install a Linux userspace toolchain with the musl standard library
 if ! ${CPU_ARCH}-linux-musl-gcc --version > /dev/null 2>&1; then
-	conda install gcc-${CPU_ARCH}-linux-musl
+	conda install toolchain-${CPU_ARCH}-linux-musl
 fi
 
 if [ ${CPU} = mor1kx ]; then

@@ -402,17 +402,9 @@ echo ""
 echo "Checking C compiler toolchain"
 echo "---------------------------------------"
 
-# binutils for the target
-
-
-
-check_version ${CPU_ARCH}-elf-ld $BINUTILS_VERSION || return 1
 
 # gcc for the target
-
-
-
-check_version ${CPU_ARCH}-elf-gcc $GCC_VERSION || return 1
+check_version ${CPU_ARCH}-elf-gcc $TOOLCHAIN_VERSION || return 1
 
 # gdb for the target
 #
