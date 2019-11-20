@@ -1,0 +1,3 @@
+steps:
+- name: 'gcr.io/conda-package-builder-ci/debian-build-tools'
+  args: ['make']
