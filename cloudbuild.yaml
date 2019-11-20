@@ -1,3 +1,3 @@
 steps:
 - name: 'gcr.io/conda-package-builder-ci/debian-build-tools'
-  args: ['bash', '-c', 'useradd -ms /bin/bash user && su user -c "export HDMI2USB_UDEV_IGNORE=1 && scripts/enter-env.sh && ./scripts/debian-setup.sh && make"']
+  args: ['bash', '-c', 'useradd -ms /bin/bash user && su user -c "export HDMI2USB_UDEV_IGNORE=1 && . scripts/enter-env.sh && ./scripts/debian-setup.sh && make"']
