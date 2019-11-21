@@ -33,6 +33,7 @@
 #include "mmcm.h"
 #include "processor.h"
 #include "heartbeat.h"
+#include "pcie.h"
 
 /*
  ----------------->>> Time ----------->>>
@@ -705,6 +706,8 @@ char * processor_get_source_name(int source) {
 	memset(processor_buffer, 0, 16);
 	if(source == VIDEO_IN_PATTERN)
 		sprintf(processor_buffer, "pattern");
+	else if(source == VIDEO_IN_PCIE)
+		sprintf(processor_buffer, "pcie");
 	else
 		sprintf(processor_buffer, "input%d", source);
 	return processor_buffer;
@@ -724,6 +727,9 @@ void processor_update(void)
 #endif
 	if(processor_hdmi_out0_source == VIDEO_IN_PATTERN)
 		hdmi_out0_core_initiator_base_write(pattern_framebuffer_base());
+
+	if(processor_hdmi_out0_source == VIDEO_IN_PCIE)
+		hdmi_out0_core_initiator_base_write(pcie_in_framebuffer_base());
 #endif
 
 #ifdef CSR_HDMI_OUT1_BASE
@@ -755,6 +761,11 @@ void processor_update(void)
 #endif
 	if(processor_encoder_source == VIDEO_IN_PATTERN)
 		encoder_reader_base_write(pattern_framebuffer_base());
+#endif
+
+#ifdef CSR_PCIE_PHY_BASE
+	/*  PCIe capture*/
+	/*  FIXME: add code here when PCIe output starts to use DMA */
 #endif
 
 #ifdef CSR_HDMI_IN0_BASE
