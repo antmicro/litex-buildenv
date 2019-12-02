@@ -1,0 +1,9 @@
+- Use 'make' to build the driver
+
+- Insert driver with
+
+  insmod netv2.ko
+
+- Remove driver with
+
+  rmmod netv2
