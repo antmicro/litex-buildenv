@@ -24,356 +24,585 @@
 #include <linux/types.h>
 #include <linux/ioctl.h>
 #include <linux/init.h>
-#include <linux/errno.h>
-#include <linux/mm.h>
-#include <linux/fs.h>
-#include <linux/mmtimer.h>
-#include <linux/miscdevice.h>
-#include <linux/posix-timers.h>
-#include <linux/interrupt.h>
-#include <linux/time.h>
-#include <linux/math64.h>
 #include <linux/mutex.h>
-#include <linux/slab.h>
 #include <linux/pci.h>
 #include <linux/pci_regs.h>
-#include <linux/delay.h>
-#include <linux/wait.h>
-#include <linux/log2.h>
-#include <linux/cdev.h>
+#include <linux/v4l2-dv-timings.h>
+#include <media/v4l2-device.h>
+#include <media/v4l2-dev.h>
+#include <media/v4l2-ioctl.h>
+#include <media/v4l2-dv-timings.h>
+#include <media/v4l2-ctrls.h>
+#include <media/v4l2-event.h>
+#include <media/videobuf2-v4l2.h>
+#include <media/videobuf2-dma-contig.h>
 
-#define NETV2_NAME "netv2"
-#define NETV2_MINOR_COUNT 32
-#define NETV2_BUF_SIZE 1*1024*1024
+#define HDMI2PCIE_NAME "HDMI2PCIe"
 
 #define PCIE_FPGA_VENDOR_ID 0x10ee
 #define PCIE_FPGA_DEVICE_ID 0x7022
 
-struct netv2_device {
-    struct pci_dev  *dev;
-    struct cdev *cdev;
-    resource_size_t bar0_size;
-    phys_addr_t bar0_phys_addr;
-    uint8_t *bar0_addr; /* virtual address of BAR0 */
-    int minor_base;
+struct hdmi2pcie_priv_data {
+	struct pci_dev  *pdev;
+	struct v4l2_device v4l2_dev;
+	struct video_device vdev;
+	struct mutex lock;
+
+	struct v4l2_dv_timings timings;
+	struct v4l2_pix_format format;
+
+	struct vb2_queue queue;
+
+	spinlock_t qlock;
+	struct list_head buf_list;
+	unsigned sequence;
+	/* PCIe BAR0 */
+	resource_size_t bar0_size;
+	phys_addr_t bar0_phys_addr;
+	uint8_t *bar0_addr; /* virtual address of BAR0 */
 };
 
-static int netv2_major;
-static int netv2_minor_idx;
-static struct class* netv2_class;
-static dev_t netv2_dev_t;
-
-struct netv2_device *netv2_g;
-
-static int netv2_open(struct inode *inode, struct file *file)
-{
-    file->private_data = netv2_g;
-
-    return 0;
-}
-
-static int netv2_release(struct inode *inode, struct file *file)
-{
-    return 0;
-}
-
-static ssize_t netv2_read(struct file *file, char __user *data, size_t size, loff_t *offset)
-{
-    int i;
-    struct netv2_device *s = file->private_data;
-    uint32_t *buf;
-    buf = kzalloc(NETV2_BUF_SIZE, GFP_KERNEL);
-
-    if(!buf){
-        printk(KERN_ERR "failed to allocate buffer\n");
-        return -ENOMEM;
-    }
-
-    for (i = 0; i < size;) {
-        int xfer_size = NETV2_BUF_SIZE < (size - i) ? NETV2_BUF_SIZE : (size - i);
-
-        memcpy_fromio(buf, s->bar0_addr + i + *offset, xfer_size);
-
-        if(copy_to_user(data + i, buf, xfer_size)){
-            kfree(buf);
-            printk(KERN_ERR "copy_to_user failed\n");
-            return -EFAULT;
-        }
-
-	i += xfer_size;
-    }
-
-    kfree(buf);
-
-    *offset += size;
-
-    return size;
-}
-
-static ssize_t netv2_write(struct file *file, const char __user *data, size_t size, loff_t *offset)
-{
-    int i;
-    struct netv2_device *s = file->private_data;
-    uint32_t *buf;
-
-    buf = kzalloc(NETV2_BUF_SIZE, GFP_KERNEL);
-
-    if(!buf){
-        printk(KERN_ERR "failed to allocate buffer\n");
-        return -ENOMEM;
-    }
-
-    for (i = 0; i < size;) {
-        int xfer_size = NETV2_BUF_SIZE < (size - i) ? NETV2_BUF_SIZE : (size - i);
-
-        if(copy_from_user(buf, data + i, xfer_size)){
-            kfree(buf);
-            printk(KERN_ERR "copy_from_user failed\n");
-            return -EFAULT;
-        }
-
-        memcpy_toio(s->bar0_addr + i + *offset, buf, xfer_size);
-
-	i += xfer_size;
-    }
-
-    kfree(buf);
-
-    *offset += size;
-
-    return size;
-}
-
-static struct file_operations netv2_fops = {
-    .owner = THIS_MODULE,
-    .open = netv2_open,
-    .release = netv2_release,
-    .read = netv2_read,
-    .write = netv2_write,
-    .llseek = generic_file_llseek,
+static const struct v4l2_dv_timings_cap hdmi2pcie_timings_cap = {
+	.type = V4L2_DV_BT_656_1120,
+	.reserved = { 0 },
+	V4L2_INIT_BT_TIMINGS(
+		640, 1920,
+		480, 1080,
+		25000000, 148500000,
+		V4L2_DV_BT_STD_CEA861,
+		V4L2_DV_BT_CAP_PROGRESSIVE
+	)
 };
 
-static int netv2_alloc_chdev(struct netv2_device *s)
+struct hdmi2pcie_buffer {
+	struct vb2_buffer vb;
+	struct list_head list;
+};
+
+static inline struct hdmi2pcie_buffer *to_hdmi2pcie_buffer(struct vb2_buffer *vb2)
 {
-    int ret;
-    int index;
-
-    index = netv2_minor_idx;
-    s->minor_base = netv2_minor_idx;
-    s->cdev = cdev_alloc();
-    if(!s->cdev) {
-        ret = -ENOMEM;
-        printk(KERN_ERR NETV2_NAME " Failed to allocate cdev\n");
-        goto fail_alloc;
-    }
-
-    cdev_init(s->cdev, &netv2_fops);
-    ret = cdev_add(s->cdev, MKDEV(netv2_major, index), 1);
-    if(ret < 0) {
-        printk(KERN_ERR NETV2_NAME " Failed to allocate cdev\n");
-        goto fail_alloc;
-    }
-
-    printk(KERN_INFO NETV2_NAME " Creating /dev/netv2%d\n", index);
-    if(!device_create(netv2_class, NULL, MKDEV(netv2_major, index), NULL, "netv2%d", index)) {
-        ret = -EINVAL;
-        printk(KERN_ERR NETV2_NAME " Failed to create device\n");
-        goto fail_create;
-    }
-
-    return 0;
-
-fail_create:
-    device_destroy(netv2_class, MKDEV(netv2_major, index));
-
-fail_alloc:
-    if(s->cdev) {
-        cdev_del(s->cdev);
-        s->cdev=NULL;
-    }
-
-    return ret;
+	return container_of(vb2, struct hdmi2pcie_buffer, vb);
 }
 
-static void netv2_free_chdev(struct netv2_device *s)
+static int queue_setup(struct vb2_queue *vq,
+		       unsigned int *nbuffers, unsigned int *nplanes,
+		       unsigned int sizes[], struct device *alloc_devs[])
 {
-    device_destroy(netv2_class, MKDEV(netv2_major, s->minor_base));
-    cdev_del(s->cdev);
-    s->cdev=NULL;
+	struct hdmi2pcie_priv_data *priv = vb2_get_drv_priv(vq);
+
+	if (vq->num_buffers + *nbuffers < 3)
+		*nbuffers = 3 - vq->num_buffers;
+
+	if (*nplanes)
+		return sizes[0] < priv->format.sizeimage ? -EINVAL : 0;
+
+	*nplanes = 1;
+	sizes[0] = priv->format.sizeimage;
+	return 0;
 }
 
-static int netv2_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
+static int buffer_prepare(struct vb2_buffer *vb)
 {
-    int ret=0;
-    uint8_t rev_id;
+	struct hdmi2pcie_priv_data *priv = vb2_get_drv_priv(vb->vb2_queue);
+	unsigned long size = priv->format.sizeimage;
 
-    struct netv2_device *netv2_dev = NULL;
+	if (vb2_plane_size(vb, 0) < size) {
+		dev_err(&priv->pdev->dev, "buffer too small (%lu < %lu)\n",
+			 vb2_plane_size(vb, 0), size);
+		return -EINVAL;
+	}
 
-    printk(KERN_INFO NETV2_NAME " \e[1m[Probing device]\e[0m\n");
+	vb2_set_plane_payload(vb, 0, size);
+	return 0;
+}
 
-    netv2_dev = kzalloc(sizeof(struct netv2_device), GFP_KERNEL);
-    if(!netv2_dev) {
-        printk(KERN_ERR NETV2_NAME " Cannot allocate memory\n");
-        ret = -ENOMEM;
-        goto fail1;
-    }
+#define READ_BUF_OFF 0x1c00000
 
-    pci_set_drvdata(dev, netv2_dev);
-    netv2_dev->dev = dev;
-    netv2_g = netv2_dev;
+static void buffer_queue(struct vb2_buffer *vb)
+{
+	struct hdmi2pcie_priv_data *priv = vb2_get_drv_priv(vb->vb2_queue);
+	//struct hdmi2pcie_buffer *buf = to_hdmi2pcie_buffer(vb);
+	unsigned long size = vb2_get_plane_payload(vb, 0);
+	void *dst = vb2_plane_vaddr(vb, 0);
+	unsigned long flags;
 
-    ret = pci_enable_device(dev);
-    if (ret != 0) {
-        printk(KERN_ERR NETV2_NAME " Cannot enable device\n");
-        goto fail1;
-    }
+	spin_lock_irqsave(&priv->qlock, flags);
+	//list_add_tail(&buf->list, &priv->buf_list);
 
-    /* check device version */
-    pci_read_config_byte(dev, PCI_REVISION_ID, &rev_id);
-    if (rev_id != 1) {
-        printk(KERN_ERR NETV2_NAME " Unsupported device version %d\n", rev_id);
-        goto fail2;
-    }
+	memcpy_fromio(dst, priv->bar0_addr + READ_BUF_OFF, size);
 
-    if (pci_request_regions(dev, NETV2_NAME) < 0) {
-        printk(KERN_ERR NETV2_NAME " Could not request regions\n");
-        goto fail2;
-    }
+	spin_unlock_irqrestore(&priv->qlock, flags);
+}
 
+static void return_all_buffers(struct hdmi2pcie_priv_data *priv,
+			       enum vb2_buffer_state state)
+{
+	struct hdmi2pcie_buffer *buf, *node;
+	unsigned long flags;
 
-    /* check bar0 config */
-    if (!(pci_resource_flags(dev, 0) & IORESOURCE_MEM)) {
-        printk(KERN_ERR NETV2_NAME " Invalid BAR0 configuration\n");
-        goto fail3;
-    }
+	spin_lock_irqsave(&priv->qlock, flags);
+	list_for_each_entry_safe(buf, node, &priv->buf_list, list) {
+		vb2_buffer_done(&buf->vb, state);
+		list_del(&buf->list);
+	}
+	spin_unlock_irqrestore(&priv->qlock, flags);
+}
 
-    netv2_dev->bar0_addr = pci_ioremap_bar(dev, 0);
-    netv2_dev->bar0_size = pci_resource_len(dev, 0);
-    netv2_dev->bar0_phys_addr = pci_resource_start(dev, 0);
-    if (!netv2_dev->bar0_addr) {
-        printk(KERN_ERR NETV2_NAME " Could not map BAR0\n");
-        goto fail3;
-    }
+static int start_streaming(struct vb2_queue *vq, unsigned int count)
+{
+	struct hdmi2pcie_priv_data *priv = vb2_get_drv_priv(vq);
+	int ret = 0;
 
-    pci_set_master(dev);
-    ret = pci_set_dma_mask(dev, DMA_BIT_MASK(32));
-    if (ret) {
-        printk(KERN_ERR NETV2_NAME " Failed to set DMA mask\n");
-        goto fail4;
-    };
+	priv->sequence = 0;
 
-    ret = pci_enable_msi(dev);
-    if (ret) {
-        printk(KERN_ERR NETV2_NAME " Failed to enable MSI\n");
-        goto fail4;
-    }
+	if (ret) {
+		return_all_buffers(priv, VB2_BUF_STATE_QUEUED);
+	}
+	return ret;
+}
 
-    /* create all chardev in /dev */
-    ret = netv2_alloc_chdev(netv2_dev);
-    if(ret){
-        printk(KERN_ERR NETV2_NAME "Failed to allocate character device\n");
-        goto fail5;
-    }
+static void stop_streaming(struct vb2_queue *vq)
+{
+	struct hdmi2pcie_priv_data *priv = vb2_get_drv_priv(vq);
 
-    printk(KERN_INFO NETV2_NAME " NeTV2 device probed\n");
+	return_all_buffers(priv, VB2_BUF_STATE_ERROR);
+}
 
-    return 0;
+static struct vb2_ops hdmi2pcie_qops = {
+	.queue_setup		= queue_setup,
+	.buf_prepare		= buffer_prepare,
+	.buf_queue		= buffer_queue,
+	.start_streaming	= start_streaming,
+	.stop_streaming		= stop_streaming,
+	.wait_prepare		= vb2_ops_wait_prepare,
+	.wait_finish		= vb2_ops_wait_finish,
+};
+
+static int hdmi2pcie_querycap(struct file *file, void *private,
+			     struct v4l2_capability *cap)
+{
+	struct hdmi2pcie_priv_data *priv = video_drvdata(file);
+
+	strlcpy(cap->driver, KBUILD_MODNAME, sizeof(cap->driver));
+	strlcpy(cap->card, "HDMI2PCIe", sizeof(cap->card));
+	snprintf(cap->bus_info, sizeof(cap->bus_info), "PCI:%s",
+		 pci_name(priv->pdev));
+	return 0;
+}
+
+static void hdmi2pcie_fill_pix_format(struct hdmi2pcie_priv_data *priv,
+				     struct v4l2_pix_format *pix)
+{
+	pix->pixelformat = V4L2_PIX_FMT_YUYV;
+	pix->width = priv->timings.bt.width;
+	pix->height = priv->timings.bt.height;
+	if (priv->timings.bt.interlaced) {
+		pix->field = V4L2_FIELD_ALTERNATE;
+		pix->height /= 2;
+	} else {
+		pix->field = V4L2_FIELD_NONE;
+	}
+	pix->colorspace = V4L2_COLORSPACE_REC709;
+
+	pix->bytesperline = pix->width * 2;
+	pix->sizeimage = pix->bytesperline * pix->height;
+	pix->priv = 0;
+}
+
+static int hdmi2pcie_try_fmt_vid_cap(struct file *file, void *private,
+				    struct v4l2_format *f)
+{
+	struct hdmi2pcie_priv_data *priv = video_drvdata(file);
+	struct v4l2_pix_format *pix = &f->fmt.pix;
+
+	if (pix->pixelformat != V4L2_PIX_FMT_YUYV)
+		return -EINVAL;
+	hdmi2pcie_fill_pix_format(priv, pix);
+	return 0;
+}
+
+static int hdmi2pcie_s_fmt_vid_cap(struct file *file, void *private,
+				  struct v4l2_format *f)
+{
+	struct hdmi2pcie_priv_data *priv = video_drvdata(file);
+	int ret;
+
+	ret = hdmi2pcie_try_fmt_vid_cap(file, private, f);
+	if (ret)
+		return ret;
+
+	if (vb2_is_busy(&priv->queue))
+		return -EBUSY;
+
+	// TODO: set format on the device
+	priv->format = f->fmt.pix;
+	return 0;
+}
+
+static int hdmi2pcie_g_fmt_vid_cap(struct file *file, void *private,
+				  struct v4l2_format *f)
+{
+	struct hdmi2pcie_priv_data *priv = video_drvdata(file);
+
+	f->fmt.pix = priv->format;
+	return 0;
+}
+
+static int hdmi2pcie_enum_fmt_vid_cap(struct file *file, void *private,
+				     struct v4l2_fmtdesc *f)
+{
+	if (f->index != 0)
+		return -EINVAL;
+
+	f->pixelformat = V4L2_PIX_FMT_YUYV;
+	return 0;
+}
+
+static int hdmi2pcie_s_std(struct file *file, void *private, v4l2_std_id std)
+{
+	return -ENODATA;
+}
+
+static int hdmi2pcie_g_std(struct file *file, void *private, v4l2_std_id *std)
+{
+	return -ENODATA;
+}
+
+static int hdmi2pcie_querystd(struct file *file, void *private, v4l2_std_id *std)
+{
+	return -ENODATA;
+}
+
+static int hdmi2pcie_s_dv_timings(struct file *file, void *_fh,
+				 struct v4l2_dv_timings *timings)
+{
+	struct hdmi2pcie_priv_data *priv = video_drvdata(file);
+
+	if (!v4l2_valid_dv_timings(timings, &hdmi2pcie_timings_cap, NULL, NULL))
+		return -EINVAL;
+
+	if (!v4l2_find_dv_timings_cap(timings, &hdmi2pcie_timings_cap,
+				      0, NULL, NULL))
+		return -EINVAL;
+
+	if (v4l2_match_dv_timings(timings, &priv->timings, 0, false))
+		return 0;
+
+	if (vb2_is_busy(&priv->queue))
+		return -EBUSY;
+
+	priv->timings = *timings;
+
+	hdmi2pcie_fill_pix_format(priv, &priv->format);
+	return 0;
+}
+
+static int hdmi2pcie_g_dv_timings(struct file *file, void *_fh,
+				 struct v4l2_dv_timings *timings)
+{
+	struct hdmi2pcie_priv_data *priv = video_drvdata(file);
+
+	*timings = priv->timings;
+	return 0;
+}
+
+static int hdmi2pcie_enum_dv_timings(struct file *file, void *_fh,
+				    struct v4l2_enum_dv_timings *timings)
+{
+	return v4l2_enum_dv_timings_cap(timings, &hdmi2pcie_timings_cap,
+					NULL, NULL);
+}
+
+static int hdmi2pcie_query_dv_timings(struct file *file, void *_fh,
+				     struct v4l2_dv_timings *timings)
+{
+	// TODO: detect current timings/signal state (out of range, disconnected, ...)
+
+	return 0;
+}
+
+static int hdmi2pcie_dv_timings_cap(struct file *file, void *fh,
+				   struct v4l2_dv_timings_cap *cap)
+{
+	*cap = hdmi2pcie_timings_cap;
+	return 0;
+}
+
+static int hdmi2pcie_enum_input(struct file *file, void *priv,
+			       struct v4l2_input *i)
+{
+	if (!i->index)
+		return -EINVAL;
+
+	i->type = V4L2_INPUT_TYPE_CAMERA;
+	i->std = 0;
+	strlcpy(i->name, "HDMI", sizeof(i->name));
+	i->capabilities = V4L2_IN_CAP_DV_TIMINGS;
+	return 0;
+}
+
+static int hdmi2pcie_s_input(struct file *file, void *private, unsigned int i)
+{
+	struct hdmi2pcie_priv_data *priv = video_drvdata(file);
+
+	if (!i)
+		return -EINVAL;
+
+	if (vb2_is_busy(&priv->queue))
+		return -EBUSY;
+
+	priv->vdev.tvnorms = 0;
+
+	hdmi2pcie_fill_pix_format(priv, &priv->format);
+	return 0;
+}
+
+static int hdmi2pcie_g_input(struct file *file, void *private, unsigned int *i)
+{
+	*i = 0;
+	return 0;
+}
+
+static const struct v4l2_ioctl_ops hdmi2pcie_ioctl_ops = {
+	.vidioc_querycap = hdmi2pcie_querycap,
+	.vidioc_try_fmt_vid_cap = hdmi2pcie_try_fmt_vid_cap,
+	.vidioc_s_fmt_vid_cap = hdmi2pcie_s_fmt_vid_cap,
+	.vidioc_g_fmt_vid_cap = hdmi2pcie_g_fmt_vid_cap,
+	.vidioc_enum_fmt_vid_cap = hdmi2pcie_enum_fmt_vid_cap,
+
+	.vidioc_g_std = hdmi2pcie_g_std,
+	.vidioc_s_std = hdmi2pcie_s_std,
+	.vidioc_querystd = hdmi2pcie_querystd,
+
+	.vidioc_s_dv_timings = hdmi2pcie_s_dv_timings,
+	.vidioc_g_dv_timings = hdmi2pcie_g_dv_timings,
+	.vidioc_enum_dv_timings = hdmi2pcie_enum_dv_timings,
+	.vidioc_query_dv_timings = hdmi2pcie_query_dv_timings,
+	.vidioc_dv_timings_cap = hdmi2pcie_dv_timings_cap,
+
+	.vidioc_enum_input = hdmi2pcie_enum_input,
+	.vidioc_g_input = hdmi2pcie_g_input,
+	.vidioc_s_input = hdmi2pcie_s_input,
+
+	.vidioc_reqbufs = vb2_ioctl_reqbufs,
+	.vidioc_create_bufs = vb2_ioctl_create_bufs,
+	.vidioc_querybuf = vb2_ioctl_querybuf,
+	.vidioc_qbuf = vb2_ioctl_qbuf,
+	.vidioc_dqbuf = vb2_ioctl_dqbuf,
+	.vidioc_expbuf = vb2_ioctl_expbuf,
+	.vidioc_streamon = vb2_ioctl_streamon,
+	.vidioc_streamoff = vb2_ioctl_streamoff,
+
+	.vidioc_log_status = v4l2_ctrl_log_status,
+	.vidioc_subscribe_event = v4l2_ctrl_subscribe_event,
+	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
+};
+
+static const struct v4l2_file_operations hdmi2pcie_fops = {
+	.owner = THIS_MODULE,
+	.open = v4l2_fh_open,
+	.release = vb2_fop_release,
+	.unlocked_ioctl = video_ioctl2,
+	.read = vb2_fop_read,
+	.mmap = vb2_fop_mmap,
+	.poll = vb2_fop_poll,
+};
+
+static int hdmi2pcie_register_video_dev(struct pci_dev *pdev, struct hdmi2pcie_priv_data *priv)
+{
+	int ret;
+	struct video_device *vdev = &priv->vdev;
+	struct vb2_queue *q = &priv->queue;
+
+	ret = v4l2_device_register(&pdev->dev, &priv->v4l2_dev);
+	if (ret)
+		return ret;
+
+	mutex_init(&priv->lock);
+
+	q->io_modes = VB2_MMAP | VB2_DMABUF | VB2_READ;
+	q->dev = &pdev->dev;
+	q->drv_priv = priv;
+	q->buf_struct_size = sizeof(struct hdmi2pcie_buffer);
+	q->ops = &hdmi2pcie_qops;
+	q->mem_ops = &vb2_dma_contig_memops;
+	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	q->min_buffers_needed = 2;
+	q->lock = &priv->lock;
+	q->gfp_flags = GFP_DMA32;
+	ret = vb2_queue_init(q);
+	if (ret)
+		goto v4l2_unregister;
+
+	INIT_LIST_HEAD(&priv->buf_list);
+	spin_lock_init(&priv->qlock);
+
+	strlcpy(vdev->name, KBUILD_MODNAME, sizeof(vdev->name));
+	vdev->release = video_device_release_empty;
+
+	vdev->fops = &hdmi2pcie_fops,
+	vdev->ioctl_ops = &hdmi2pcie_ioctl_ops,
+	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_READWRITE |
+			    V4L2_CAP_STREAMING;
+
+	vdev->lock = &priv->lock;
+	vdev->queue = q;
+	vdev->v4l2_dev = &priv->v4l2_dev;
+	video_set_drvdata(vdev, priv);
+
+	ret = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
+	if (ret)
+		goto v4l2_unregister;
+
+	dev_info(&pdev->dev, "V4L2 HDMI2PCIe driver loaded");
+	return 0;
+
+v4l2_unregister:
+	v4l2_device_unregister(&priv->v4l2_dev);
+	return ret;
+}
+
+static int hdmi2pcie_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+{
+	int ret;
+	uint8_t rev_id;
+
+	struct device *dev = &pdev->dev;
+	struct hdmi2pcie_priv_data *priv;
+
+	dev_info(dev, "\e[1m[Probing device]\e[0m\n");
+
+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	if(!priv) {
+		dev_err(dev, "Cannot allocate memory\n");
+		ret = -ENOMEM;
+		goto fail1;
+	}
+
+	pci_set_drvdata(pdev, priv);
+	priv->pdev = pdev;
+
+	ret = pci_enable_device(pdev);
+	if (ret != 0) {
+		dev_err(dev, "Cannot enable device\n");
+		goto fail1;
+	}
+
+	/* check device version */
+	pci_read_config_byte(pdev, PCI_REVISION_ID, &rev_id);
+	if (rev_id != 1) {
+		dev_err(dev, "Unsupported device version %d\n", rev_id);
+		goto fail2;
+	}
+
+	if (pci_request_regions(pdev, HDMI2PCIE_NAME) < 0) {
+		dev_err(dev, "Could not request regions\n");
+		goto fail2;
+	}
+
+	/* check bar0 config */
+	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
+		dev_err(dev, "Invalid BAR0 configuration\n");
+		goto fail3;
+	}
+
+	priv->bar0_addr = pci_ioremap_bar(pdev, 0);
+	priv->bar0_size = pci_resource_len(pdev, 0);
+	priv->bar0_phys_addr = pci_resource_start(pdev, 0);
+	if (!priv->bar0_addr) {
+		dev_err(dev, "Could not map BAR0\n");
+		goto fail3;
+	}
+
+	pci_set_master(pdev);
+	ret = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_err(dev, "Failed to set DMA mask\n");
+		goto fail4;
+	};
+
+	ret = pci_enable_msi(pdev);
+	if (ret) {
+		dev_err(dev, "Failed to enable MSI\n");
+		goto fail4;
+	}
+
+	ret = hdmi2pcie_register_video_dev(pdev, priv);
+	if (ret) {
+		dev_err(dev, "Failed to register V4L2 device");
+		goto fail5;
+	}
+
+	return 0;
 
 fail5:
-    pci_disable_msi(dev);
+	pci_disable_msi(pdev);
 fail4:
-    pci_iounmap(dev, netv2_dev->bar0_addr);
+	pci_iounmap(pdev, priv->bar0_addr);
 fail3:
-    pci_release_regions(dev);
+	pci_release_regions(pdev);
 fail2:
-    pci_disable_device(dev);
+	pci_disable_device(pdev);
 fail1:
-    if(netv2_dev){
-        kfree(netv2_dev);
-    }
-    return ret;
+	if(priv){
+		kfree(priv);
+	}
+	return ret;
 }
 
-static void netv2_pci_remove(struct pci_dev *dev)
+static void hdmi2pcie_pci_remove(struct pci_dev *pdev)
 {
-    struct netv2_device *netv2_dev;
+	struct hdmi2pcie_priv_data *priv;
 
-    netv2_dev = pci_get_drvdata(dev);
+	priv = pci_get_drvdata(pdev);
 
-    printk(KERN_INFO NETV2_NAME " \e[1m[Removing device]\e[0m\n");
+	dev_info(&pdev->dev, "\e[1m[Removing device]\e[0m\n");
 
-    if(netv2_dev){
-        netv2_free_chdev(netv2_dev);
-    }
+	pci_disable_msi(pdev);
 
-    pci_disable_msi(dev);
-    if(netv2_dev)
-        pci_iounmap(dev, netv2_dev->bar0_addr);
-    pci_disable_device(dev);
-    pci_release_regions(dev);
-    if(netv2_dev){
-        kfree(netv2_dev);
-    }
+	if(priv)
+		pci_iounmap(pdev, priv->bar0_addr);
+
+	pci_disable_device(pdev);
+	pci_release_regions(pdev);
+
+	if(priv)
+		kfree(priv);
 }
 
-static const struct pci_device_id netv2_pci_ids[] = {
-  { PCI_DEVICE(PCIE_FPGA_VENDOR_ID, PCIE_FPGA_DEVICE_ID ), },
-  { 0, }
+static const struct pci_device_id hdmi2pcie_pci_ids[] = {
+	{ PCI_DEVICE(PCIE_FPGA_VENDOR_ID, PCIE_FPGA_DEVICE_ID ), },
+	{ 0, }
 };
-MODULE_DEVICE_TABLE(pci, netv2_pci_ids);
+MODULE_DEVICE_TABLE(pci, hdmi2pcie_pci_ids);
 
-static struct pci_driver netv2_pci_driver = {
-  .name = NETV2_NAME,
-  .id_table = netv2_pci_ids,
-  .probe = netv2_pci_probe,
-  .remove = netv2_pci_remove,
+static struct pci_driver hdmi2pcie_pci_driver = {
+	.name = HDMI2PCIE_NAME,
+	.id_table = hdmi2pcie_pci_ids,
+	.probe = hdmi2pcie_pci_probe,
+	.remove = hdmi2pcie_pci_remove,
 };
 
-
-static int __init netv2_module_init(void)
+static int __init hdmi2pcie_module_init(void)
 {
-    int ret;
+	int ret;
 
-    netv2_class = class_create(THIS_MODULE, NETV2_NAME);
-    if(!netv2_class) {
-        ret = -EEXIST;
-        printk(KERN_ERR NETV2_NAME " Failed to create class\n");
-        goto fail_create_class;
-    }
+	ret = pci_register_driver(&hdmi2pcie_pci_driver);
+	if (ret < 0) {
+		printk(KERN_ERR HDMI2PCIE_NAME " Error while registering PCI driver\n");
+		return ret;
+	}
 
-    ret = alloc_chrdev_region(&netv2_dev_t, 0, NETV2_MINOR_COUNT, NETV2_NAME);
-    if(ret < 0) {
-        printk(KERN_ERR NETV2_NAME " Could not allocate char device\n");
-        goto fail_alloc_chrdev_region;
-    }
-    netv2_major = MAJOR(netv2_dev_t);
-    netv2_minor_idx = MINOR(netv2_dev_t);
-
-    ret = pci_register_driver(&netv2_pci_driver);
-    if (ret < 0) {
-        printk(KERN_ERR NETV2_NAME NETV2_NAME " Error while registering PCI driver\n");
-        goto fail_register;
-    }
-
-    return 0;
-
-fail_register:
-    unregister_chrdev_region(netv2_dev_t, NETV2_MINOR_COUNT);
-fail_alloc_chrdev_region:
-    class_destroy(netv2_class);
-fail_create_class:
-    return ret;
+	return 0;
 }
 
-static void __exit netv2_module_exit(void)
+static void __exit hdmi2pcie_module_exit(void)
 {
-    pci_unregister_driver(&netv2_pci_driver);
-    unregister_chrdev_region(netv2_dev_t, NETV2_MINOR_COUNT);
-    class_destroy(netv2_class);
+	pci_unregister_driver(&hdmi2pcie_pci_driver);
 }
 
 
-module_init(netv2_module_init);
-module_exit(netv2_module_exit);
+module_init(hdmi2pcie_module_init);
+module_exit(hdmi2pcie_module_exit);
 
 MODULE_LICENSE("GPL");

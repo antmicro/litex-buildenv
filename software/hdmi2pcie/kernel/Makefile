@@ -3,12 +3,12 @@
 KERNEL_VERSION:=$(shell uname -r)
 KERNEL_PATH:=/lib/modules/$(KERNEL_VERSION)/build
 
-obj-m = netv2.o
-netv2-objs = main.o
+obj-m = hdmi2pcie.o
+hdmi2pcie-objs = main.o
 
-all: netv2.ko
+all: hdmi2pcie.ko
 
-netv2.ko: main.c
+hdmi2pcie.ko: main.c
 	make -C $(KERNEL_PATH) M=$(shell pwd) modules
 
 clean:
