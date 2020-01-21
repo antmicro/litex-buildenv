@@ -101,6 +101,7 @@ static int queue_setup(struct vb2_queue *vq,
 		       unsigned int sizes[], struct device *alloc_devs[])
 {
 	struct vid_channel *chan = vb2_get_drv_priv(vq);
+	dev_err(&chan->common->pdev->dev, "%s:%d\n", __FILE__, __LINE__);
 
 	if (vq->num_buffers + *nbuffers < 3)
 		*nbuffers = 3 - vq->num_buffers;
@@ -117,6 +118,8 @@ static int buffer_prepare(struct vb2_buffer *vb)
 {
 	struct vid_channel *chan = vb2_get_drv_priv(vb->vb2_queue);
 	unsigned long size = chan->format.sizeimage;
+
+	dev_err(&chan->common->pdev->dev, "%s:%d\n", __FILE__, __LINE__);
 
 	if (vb2_plane_size(vb, 0) < size) {
 		dev_err(&chan->common->pdev->dev, "buffer too small (%lu < %lu)\n",
@@ -141,10 +144,12 @@ static void buffer_queue(struct vb2_buffer *vb)
 
 	spin_lock_irqsave(&chan->qlock, flags);
 	//list_add_tail(&hbuf->list, &priv->buf_list);
+	dev_err(&chan->common->pdev->dev, "memcpy pre\n");
 	if (chan->dir == HDMI2PCIE_DIR_IN)
 		memcpy_fromio(buf, chan->common->bar0_addr + READ_BUF_OFF, size);
 	else
 		memcpy_toio(chan->common->bar0_addr, buf, size);
+	dev_err(&chan->common->pdev->dev, "memcpy post\n");
 
 	vb->timestamp = ktime_get_ns();
 	vbuf->sequence = chan->sequence++;
@@ -160,6 +165,7 @@ static void return_all_buffers(struct vid_channel *chan,
 {
 	struct hdmi2pcie_buffer *buf, *node;
 	unsigned long flags;
+	dev_err(&chan->common->pdev->dev, "%s:%d\n", __FILE__, __LINE__);
 
 	spin_lock_irqsave(&chan->qlock, flags);
 	list_for_each_entry_safe(buf, node, &chan->buf_list, list) {
@@ -173,6 +179,7 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct vid_channel *chan = vb2_get_drv_priv(vq);
 	int ret = 0;
+	dev_err(&chan->common->pdev->dev, "%s:%d\n", __FILE__, __LINE__);
 
 	chan->sequence = 0;
 
@@ -187,6 +194,7 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 static void stop_streaming(struct vb2_queue *vq)
 {
 	struct vid_channel *chan = vb2_get_drv_priv(vq);
+	dev_err(&chan->common->pdev->dev, "%s:%d\n", __FILE__, __LINE__);
 
 	return_all_buffers(chan, VB2_BUF_STATE_ERROR);
 }
@@ -205,6 +213,7 @@ static int hdmi2pcie_querycap(struct file *file, void *private,
 			     struct v4l2_capability *cap)
 {
 	struct vid_channel *chan = video_drvdata(file);
+	dev_err(&chan->common->pdev->dev, "%s:%d\n", __FILE__, __LINE__);
 
 	strlcpy(cap->driver, KBUILD_MODNAME, sizeof(cap->driver));
 	strlcpy(cap->card, "HDMI2PCIe", sizeof(cap->card));
@@ -238,6 +247,8 @@ static int hdmi2pcie_try_fmt_vid_cap(struct file *file, void *private,
 	struct vid_channel *chan = video_drvdata(file);
 	struct v4l2_pix_format *pix = &f->fmt.pix;
 
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
+
 	if (pix->pixelformat != V4L2_PIX_FMT_YUYV)
 		return -EINVAL;
 	hdmi2pcie_fill_pix_format(chan, pix);
@@ -249,6 +260,7 @@ static int hdmi2pcie_s_fmt_vid_cap(struct file *file, void *private,
 {
 	struct vid_channel *chan = video_drvdata(file);
 	int ret;
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 
 	ret = hdmi2pcie_try_fmt_vid_cap(file, private, f);
 	if (ret)
@@ -266,6 +278,7 @@ static int hdmi2pcie_g_fmt_vid_cap(struct file *file, void *private,
 				  struct v4l2_format *f)
 {
 	struct vid_channel *chan = video_drvdata(file);
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 
 	f->fmt.pix = chan->format;
 	return 0;
@@ -276,6 +289,8 @@ static int hdmi2pcie_enum_fmt_vid_cap(struct file *file, void *private,
 {
 	if (f->index != 0)
 		return -EINVAL;
+	struct vid_channel *chan = video_drvdata(file);
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 
 	f->pixelformat = V4L2_PIX_FMT_YUYV;
 	return 0;
@@ -300,6 +315,7 @@ static int hdmi2pcie_s_dv_timings(struct file *file, void *_fh,
 				 struct v4l2_dv_timings *timings)
 {
 	struct vid_channel *chan = video_drvdata(file);
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 
 	if (!v4l2_valid_dv_timings(timings, &hdmi2pcie_timings_cap, NULL, NULL))
 		return -EINVAL;
@@ -324,6 +340,7 @@ static int hdmi2pcie_g_dv_timings(struct file *file, void *_fh,
 				 struct v4l2_dv_timings *timings)
 {
 	struct vid_channel *chan = video_drvdata(file);
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 
 	*timings = chan->timings;
 	return 0;
@@ -339,6 +356,8 @@ static int hdmi2pcie_enum_dv_timings(struct file *file, void *_fh,
 static int hdmi2pcie_query_dv_timings(struct file *file, void *_fh,
 				     struct v4l2_dv_timings *timings)
 {
+	struct vid_channel *chan = video_drvdata(file);
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 	// TODO: detect current timings/signal state (out of range, disconnected, ...)
 
 	return 0;
@@ -347,6 +366,8 @@ static int hdmi2pcie_query_dv_timings(struct file *file, void *_fh,
 static int hdmi2pcie_dv_timings_cap(struct file *file, void *fh,
 				   struct v4l2_dv_timings_cap *cap)
 {
+	struct vid_channel *chan = video_drvdata(file);
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 	*cap = hdmi2pcie_timings_cap;
 	return 0;
 }
@@ -355,7 +376,8 @@ static int hdmi2pcie_enum_input(struct file *file, void *private,
 			       struct v4l2_input *i)
 {
 	struct vid_channel *chan = video_drvdata(file);
-	if (!i->index || chan->dir != HDMI2PCIE_DIR_IN)
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
+	if (i->index != 0)
 		return -EINVAL;
 
 	i->type = V4L2_INPUT_TYPE_CAMERA;
@@ -367,8 +389,9 @@ static int hdmi2pcie_enum_input(struct file *file, void *private,
 static int hdmi2pcie_s_input(struct file *file, void *private, unsigned int i)
 {
 	struct vid_channel *chan = video_drvdata(file);
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 
-	if (!i || chan->dir != HDMI2PCIE_DIR_IN)
+	if (i != 0)
 		return -EINVAL;
 
 	if (vb2_is_busy(&chan->queue))
@@ -383,8 +406,7 @@ static int hdmi2pcie_s_input(struct file *file, void *private, unsigned int i)
 static int hdmi2pcie_g_input(struct file *file, void *private, unsigned int *i)
 {
 	struct vid_channel *chan = video_drvdata(file);
-	if (chan->dir != HDMI2PCIE_DIR_IN)
-		return -EINVAL;
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 
 	*i = 0;
 	return 0;
@@ -394,7 +416,8 @@ static int hdmi2pcie_enum_output(struct file *file, void *private,
 			       struct v4l2_output *i)
 {
 	struct vid_channel *chan = video_drvdata(file);
-	if (!i->index || chan->dir != HDMI2PCIE_DIR_OUT)
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
+	if (i->index != 0)
 		return -EINVAL;
 
 	i->type = V4L2_OUTPUT_TYPE_ANALOG;
@@ -406,8 +429,9 @@ static int hdmi2pcie_enum_output(struct file *file, void *private,
 static int hdmi2pcie_s_output(struct file *file, void *private, unsigned int i)
 {
 	struct vid_channel *chan = video_drvdata(file);
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 
-	if (!i || chan->dir != HDMI2PCIE_DIR_OUT)
+	if (i != 0)
 		return -EINVAL;
 
 	if (vb2_is_busy(&chan->queue))
@@ -422,14 +446,13 @@ static int hdmi2pcie_s_output(struct file *file, void *private, unsigned int i)
 static int hdmi2pcie_g_output(struct file *file, void *private, unsigned int *i)
 {
 	struct vid_channel *chan = video_drvdata(file);
-	if (chan->dir != HDMI2PCIE_DIR_OUT)
-		return -EINVAL;
+	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 
 	*i = 0;
 	return 0;
 }
 
-static const struct v4l2_ioctl_ops hdmi2pcie_ioctl_ops = {
+static const struct v4l2_ioctl_ops hdmi2pcie_ioctl_in_ops = {
 	.vidioc_querycap = hdmi2pcie_querycap,
 	.vidioc_try_fmt_vid_cap = hdmi2pcie_try_fmt_vid_cap,
 	.vidioc_s_fmt_vid_cap = hdmi2pcie_s_fmt_vid_cap,
@@ -449,6 +472,37 @@ static const struct v4l2_ioctl_ops hdmi2pcie_ioctl_ops = {
 	.vidioc_enum_input = hdmi2pcie_enum_input,
 	.vidioc_g_input = hdmi2pcie_g_input,
 	.vidioc_s_input = hdmi2pcie_s_input,
+
+	.vidioc_reqbufs = vb2_ioctl_reqbufs,
+	.vidioc_create_bufs = vb2_ioctl_create_bufs,
+	.vidioc_querybuf = vb2_ioctl_querybuf,
+	.vidioc_qbuf = vb2_ioctl_qbuf,
+	.vidioc_dqbuf = vb2_ioctl_dqbuf,
+	.vidioc_expbuf = vb2_ioctl_expbuf,
+	.vidioc_streamon = vb2_ioctl_streamon,
+	.vidioc_streamoff = vb2_ioctl_streamoff,
+
+	.vidioc_log_status = v4l2_ctrl_log_status,
+	.vidioc_subscribe_event = v4l2_ctrl_subscribe_event,
+	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
+};
+
+static const struct v4l2_ioctl_ops hdmi2pcie_ioctl_out_ops = {
+	.vidioc_querycap = hdmi2pcie_querycap,
+	.vidioc_try_fmt_vid_cap = hdmi2pcie_try_fmt_vid_cap,
+	.vidioc_s_fmt_vid_cap = hdmi2pcie_s_fmt_vid_cap,
+	.vidioc_g_fmt_vid_cap = hdmi2pcie_g_fmt_vid_cap,
+	.vidioc_enum_fmt_vid_cap = hdmi2pcie_enum_fmt_vid_cap,
+
+	.vidioc_g_std = hdmi2pcie_g_std,
+	.vidioc_s_std = hdmi2pcie_s_std,
+	.vidioc_querystd = hdmi2pcie_querystd,
+
+	.vidioc_s_dv_timings = hdmi2pcie_s_dv_timings,
+	.vidioc_g_dv_timings = hdmi2pcie_g_dv_timings,
+	.vidioc_enum_dv_timings = hdmi2pcie_enum_dv_timings,
+	.vidioc_query_dv_timings = hdmi2pcie_query_dv_timings,
+	.vidioc_dv_timings_cap = hdmi2pcie_dv_timings_cap,
 
 	.vidioc_enum_output = hdmi2pcie_enum_output,
 	.vidioc_g_output = hdmi2pcie_g_output,
@@ -482,13 +536,17 @@ static int hdmi2pcie_register_video_dev(struct pci_dev *pdev, struct vid_channel
 {
 	struct video_device *vdev = &chan->vdev;
 	struct vb2_queue *q = &chan->queue;
+	char buf[256];
 	int ret;
 
 	chan->dir = dir;
 
 	ret = v4l2_device_register(&pdev->dev, &chan->v4l2_dev);
-	if (ret)
+	if (ret) {
+		dev_err(&pdev->dev, "v4l2_device_register failed, ret=%d\n", ret);
 		return ret;
+	}
+
 
 	mutex_init(&chan->lock);
 
@@ -503,25 +561,39 @@ static int hdmi2pcie_register_video_dev(struct pci_dev *pdev, struct vid_channel
 	q->lock = &chan->lock;
 	q->gfp_flags = GFP_DMA32;
 
-	if (dir == HDMI2PCIE_DIR_IN)
+	if (dir == HDMI2PCIE_DIR_IN) {
 		q->io_modes |= VB2_READ;
-	else
+		q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE; 
+	} else {
 		q->io_modes |= VB2_WRITE;
+		q->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	}
 
 	ret = vb2_queue_init(q);
-	if (ret)
+	if (ret) {
+		dev_err(&pdev->dev, "vb2_queue_init failed, ret=%d\n", ret);
 		goto v4l2_unregister;
+	}
 
 	INIT_LIST_HEAD(&chan->buf_list);
 	spin_lock_init(&chan->qlock);
 
-	strlcpy(vdev->name, KBUILD_MODNAME, sizeof(vdev->name));
+	snprintf(buf, sizeof(buf), "hdmi2pcie %d", dir);
+
+	strlcpy(vdev->name, buf, sizeof(vdev->name));
 	vdev->release = video_device_release_empty;
 
-	vdev->fops = &hdmi2pcie_fops,
-	vdev->ioctl_ops = &hdmi2pcie_ioctl_ops,
-	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_READWRITE |
-			    V4L2_CAP_STREAMING;
+	vdev->fops = &hdmi2pcie_fops;
+	vdev->device_caps = V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
+
+	if (dir == HDMI2PCIE_DIR_IN) {
+		vdev->ioctl_ops = &hdmi2pcie_ioctl_in_ops;
+		vdev->device_caps |= V4L2_CAP_VIDEO_CAPTURE;
+	} else {
+		vdev->ioctl_ops = &hdmi2pcie_ioctl_out_ops;
+		vdev->device_caps |= V4L2_CAP_VIDEO_OUTPUT;
+	}	
+
 
 	vdev->lock = &chan->lock;
 	vdev->queue = q;
@@ -529,8 +601,10 @@ static int hdmi2pcie_register_video_dev(struct pci_dev *pdev, struct vid_channel
 	video_set_drvdata(vdev, chan);
 
 	ret = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
-	if (ret)
+	if (ret) {
+		dev_err(&pdev->dev, "video_register_device failed, ret=%d\n", ret);
 		goto v4l2_unregister;
+	}
 
 	dev_info(&pdev->dev, "V4L2 HDMI2PCIe driver loaded");
 	return 0;
@@ -645,6 +719,7 @@ fail1:
 static void hdmi2pcie_pci_remove(struct pci_dev *pdev)
 {
 	struct hdmi2pcie_priv_data *priv;
+	int i;
 
 	priv = pci_get_drvdata(pdev);
 
@@ -655,14 +730,19 @@ static void hdmi2pcie_pci_remove(struct pci_dev *pdev)
 	if(priv)
 		pci_iounmap(pdev, priv->bar0_addr);
 
-	pci_disable_device(pdev);
-	pci_release_regions(pdev);
+	for (i = 0; i < priv->chan_cnt; i++) {
+		video_unregister_device(&priv->channels[i].vdev);
+		v4l2_device_unregister(&priv->channels[i].v4l2_dev);
+	}
 
 	if(priv){
 		if(priv->channels)
 			kfree(priv->channels);
 		kfree(priv);
 	}
+
+	pci_disable_device(pdev);
+	pci_release_regions(pdev);
 }
 
 static const struct pci_device_id hdmi2pcie_pci_ids[] = {
