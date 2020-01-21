@@ -249,9 +249,14 @@ static int hdmi2pcie_try_fmt_vid_cap(struct file *file, void *private,
 
 	dev_err(&chan->common->pdev->dev, "%s\n", __PRETTY_FUNCTION__);
 
-	if (pix->pixelformat != V4L2_PIX_FMT_YUYV)
+	dev_err(&chan->common->pdev->dev, "pix_fmt %x %x %x\n", pix->width, pix->height, pix->pixelformat);
+
+	if (pix->pixelformat != V4L2_PIX_FMT_YUYV) {
+		dev_err(&chan->common->pdev->dev, "wrong format\n");
 		return -EINVAL;
+	}
 	hdmi2pcie_fill_pix_format(chan, pix);
+	dev_err(&chan->common->pdev->dev, "pix_fmt %x %x %x\n", pix->width, pix->height, pix->pixelformat);
 	return 0;
 }
 
@@ -534,6 +539,7 @@ static const struct v4l2_file_operations hdmi2pcie_fops = {
 
 static int hdmi2pcie_register_video_dev(struct pci_dev *pdev, struct vid_channel *chan, uint8_t dir)
 {
+	static const struct v4l2_dv_timings timings_def = V4L2_DV_BT_CEA_1920X1080P60;
 	struct video_device *vdev = &chan->vdev;
 	struct vb2_queue *q = &chan->queue;
 	char buf[256];
@@ -605,6 +611,8 @@ static int hdmi2pcie_register_video_dev(struct pci_dev *pdev, struct vid_channel
 		dev_err(&pdev->dev, "video_register_device failed, ret=%d\n", ret);
 		goto v4l2_unregister;
 	}
+
+	chan->timings = timings_def;
 
 	dev_info(&pdev->dev, "V4L2 HDMI2PCIe driver loaded");
 	return 0;
