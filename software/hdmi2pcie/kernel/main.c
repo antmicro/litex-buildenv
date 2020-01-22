@@ -45,6 +45,9 @@
 #define HDMI2PCIE_DIR_IN 0
 #define HDMI2PCIE_DIR_OUT 1
 
+#define PCIE_BUF_SIZE 0x400000
+#define READ_BUF_OFF (7*PCIE_BUF_SIZE)
+
 struct hdmi2pcie_priv_data;
 
 struct vid_channel {
@@ -58,6 +61,8 @@ struct vid_channel {
 
 	struct v4l2_dv_timings timings;
 	struct v4l2_pix_format format;
+
+	unsigned int *fb_idx;
 
 	spinlock_t qlock;
 	struct vb2_queue queue;
@@ -128,8 +133,6 @@ static int buffer_prepare(struct vb2_buffer *vb)
 	return 0;
 }
 
-#define READ_BUF_OFF 0x1c00000
-
 static void buffer_queue(struct vb2_buffer *vb)
 {
 	struct vid_channel *chan = vb2_get_drv_priv(vb->vb2_queue);
@@ -138,13 +141,16 @@ static void buffer_queue(struct vb2_buffer *vb)
 	unsigned long size = vb2_get_plane_payload(vb, 0);
 	void *buf = vb2_plane_vaddr(vb, 0);
 	unsigned long flags;
+	unsigned long fb_idx = (readl(chan->fb_idx) + 1) % 4;
 
 	spin_lock_irqsave(&chan->qlock, flags);
 	//list_add_tail(&hbuf->list, &priv->buf_list);
 	if (chan->dir == HDMI2PCIE_DIR_IN)
 		memcpy_fromio(buf, chan->common->bar0_addr + READ_BUF_OFF, size);
 	else
-		memcpy_toio(chan->common->bar0_addr, buf, size);
+		memcpy_toio(chan->common->bar0_addr + fb_idx * PCIE_BUF_SIZE, buf, size);
+
+	writel(fb_idx, chan->fb_idx);
 
 	vb->timestamp = ktime_get_ns();
 	vbuf->sequence = chan->sequence++;
@@ -216,7 +222,7 @@ static int hdmi2pcie_querycap(struct file *file, void *private,
 static void hdmi2pcie_fill_pix_format(struct vid_channel *chan,
 				     struct v4l2_pix_format *pix)
 {
-	pix->pixelformat = V4L2_PIX_FMT_YUYV;
+	pix->pixelformat = V4L2_PIX_FMT_UYVY;
 	pix->width = chan->timings.bt.width;
 	pix->height = chan->timings.bt.height;
 	if (chan->timings.bt.interlaced) {
@@ -238,7 +244,7 @@ static int hdmi2pcie_try_fmt_vid(struct file *file, void *private,
 	struct vid_channel *chan = video_drvdata(file);
 	struct v4l2_pix_format *pix = &f->fmt.pix;
 
-	if (pix->pixelformat != V4L2_PIX_FMT_YUYV) {
+	if (pix->pixelformat != V4L2_PIX_FMT_UYVY) {
 		dev_info(&chan->common->pdev->dev, "%s: wrong format\n", __PRETTY_FUNCTION__);
 	}
 	hdmi2pcie_fill_pix_format(chan, pix);
@@ -278,7 +284,7 @@ static int hdmi2pcie_enum_fmt_vid(struct file *file, void *private,
 	if (f->index > 0)
 		return -EINVAL;
 
-	f->pixelformat = V4L2_PIX_FMT_YUYV;
+	f->pixelformat = V4L2_PIX_FMT_UYVY;
 	return 0;
 }
 
@@ -494,6 +500,13 @@ static int hdmi2pcie_register_video_dev(struct pci_dev *pdev, struct vid_channel
 		return ret;
 	}
 
+	// Point to last 4 bytes of a 16MiB area
+	if (dir == HDMI2PCIE_DIR_IN)
+		chan->fb_idx = (unsigned int*)(chan->common->bar0_addr + 8*PCIE_BUF_SIZE - sizeof(unsigned int));
+	else
+		chan->fb_idx = (unsigned int*)(chan->common->bar0_addr + 4*PCIE_BUF_SIZE - sizeof(unsigned int));
+
+	writel(0, chan->fb_idx);
 
 	mutex_init(&chan->lock);
 
