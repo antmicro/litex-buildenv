@@ -131,6 +131,41 @@ class _CRG(Module):
                                   o_Q=output_clk_b)
         self.specials += Instance("OBUFDS", i_I=output_clk_b, o_O=clk_b.p, o_OB=clk_b.n)
 
+        # SDRAM clocks, ddram_a
+        # ------------------------------------------------------------------------------
+        self.clock_domains.cd_sdram_half_a = ClockDomain()
+        self.clock_domains.cd_sdram_full_wr_a = ClockDomain()
+        self.clock_domains.cd_sdram_full_rd_a = ClockDomain()
+
+        self.clk4x_wr_strb_a = Signal()
+        self.clk4x_rd_strb_a = Signal()
+
+        # sdram_full
+        self.specials += Instance("BUFPLL", name="sdram_full_bufpll_a",
+                                  p_DIVIDE=4,
+                                  i_PLLIN=unbuf_sdram_full, i_GCLK=self.cd_sys.clk,
+                                  i_LOCKED=pll_lckd,
+                                  o_IOCLK=self.cd_sdram_full_wr_a.clk,
+                                  o_SERDESSTROBE=self.clk4x_wr_strb_a)
+        self.comb += [
+            self.cd_sdram_full_rd_a.clk.eq(self.cd_sdram_full_wr_a.clk),
+            self.clk4x_rd_strb_a.eq(self.clk4x_wr_strb_a),
+        ]
+        # sdram_half
+        self.specials += Instance("BUFG", name="sdram_half_a_bufpll_a", i_I=unbuf_sdram_half_a, o_O=self.cd_sdram_half_a.clk)
+        clk_sdram_half_shifted_a = Signal()
+        self.specials += Instance("BUFG", name="sdram_half_b_bufpll_a", i_I=unbuf_sdram_half_b, o_O=clk_sdram_half_shifted_a)
+
+        output_clk_a = Signal()
+        clk_a = platform.request("ddram_clock_a")
+        self.specials += Instance("ODDR2", p_DDR_ALIGNMENT="NONE",
+                                  p_INIT=0, p_SRTYPE="SYNC",
+                                  i_D0=1, i_D1=0, i_S=0, i_R=0, i_CE=1,
+                                  i_C0=clk_sdram_half_shifted_a,
+                                  i_C1=~clk_sdram_half_shifted_a,
+                                  o_Q=output_clk_a)
+        self.specials += Instance("OBUFDS", i_I=output_clk_a, o_O=clk_a.p, o_OB=clk_a.n)
+
 class BaseSoC(SoCSDRAM):
     csr_peripherals = (
         "ddrphy",
@@ -140,6 +175,8 @@ class BaseSoC(SoCSDRAM):
     csr_map_update(SoCSDRAM.csr_map, csr_peripherals)
 
     mem_map = {
+        #"main_ram":     0x40000000,
+        "main_ram_2":   0x44000000,
         "emulator_ram": 0x50000000,  # (default shadow @0xd0000000)
     }
     mem_map.update(SoCSDRAM.mem_map)
@@ -188,6 +225,33 @@ class BaseSoC(SoCSDRAM):
         self.comb += [
             self.ddrphy_b.clk4x_wr_strb.eq(self.crg.clk4x_wr_strb_b),
             self.ddrphy_b.clk4x_rd_strb.eq(self.crg.clk4x_rd_strb_b),
+        ]
+
+        # sdram, ddram_a
+        sdram_module_a = MT47H32M16(self.clk_freq, "1:2")
+        self.submodules.ddrphy_a = s6ddrphy.S6HalfRateDDRPHY(
+            platform.request("ddram_a"),
+            sdram_module_a.memtype,
+            rd_bitslip=0,
+            wr_bitslip=4,
+            dqs_ddr_alignment="C0",
+            clk_suffix='a')
+        controller_settings = ControllerSettings(with_bandwidth=True)
+
+        self.add_sdram('sdram2',
+            phy                     = self.ddrphy_a,
+            module                  = sdram_module_a,
+            origin                  = self.mem_map['main_ram_2'],
+            size                    = self.max_sdram_size,
+            controller_settings     = controller_settings,
+            l2_cache_size           = self.l2_size,
+            l2_cache_min_data_width = self.min_l2_data_width,
+            l2_cache_reverse        = self.l2_reverse,
+        )
+
+        self.comb += [
+            self.ddrphy_a.clk4x_wr_strb.eq(self.crg.clk4x_wr_strb_a),
+            self.ddrphy_a.clk4x_rd_strb.eq(self.crg.clk4x_rd_strb_a),
         ]
 
 
