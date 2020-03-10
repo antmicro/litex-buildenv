@@ -4,10 +4,10 @@
 
 #ifndef LOCALIP1
 //#warning "No default IP address"
-#define LOCALIP1 0
-#define LOCALIP2 0
-#define LOCALIP3 0
-#define LOCALIP4 0
+#define LOCALIP1 192
+#define LOCALIP2 168
+#define LOCALIP3 100
+#define LOCALIP4 52
 #endif
 
 #include "config.h"

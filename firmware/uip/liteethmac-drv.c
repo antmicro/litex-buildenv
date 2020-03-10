@@ -56,6 +56,8 @@ void liteethmac_init(void)
   txbuffer = txbuffer0;
 }
 
+#define INFO() //wprintf("%s:%d\n", __func__, __LINE__)
+
 uint16_t liteethmac_poll(void)
 {
   if(ethmac_sram_writer_ev_pending_read() & ETHMAC_EV_SRAM_WRITER) {
@@ -68,6 +70,7 @@ uint16_t liteethmac_poll(void)
     memcpy(uip_buf, rxbuffer, rxlen);
     uip_len = rxlen;
     ethmac_sram_writer_ev_pending_write(ETHMAC_EV_SRAM_WRITER);
+    INFO();
     return rxlen;
   }
   return 0;
@@ -82,7 +85,9 @@ void liteethmac_send(void)
   txlen = MAX(txlen, 60);
   ethmac_sram_reader_slot_write(txslot);
   ethmac_sram_reader_length_write(txlen);
+  INFO();
   while(!(ethmac_sram_reader_ready_read()));
+  INFO();
   ethmac_sram_reader_start_write(1);
 
   txslot = (txslot+1)%2;
