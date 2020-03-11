@@ -105,12 +105,16 @@ class _CRG(Module):
         self.clk4x_rd_strb = Signal()
 
         # sdram_full
+        unbuf_cd_sdram_full_wr = Signal()
         self.specials += Instance("BUFPLL", name="sdram_full_bufpll",
                                   p_DIVIDE=4,
                                   i_PLLIN=unbuf_sdram_full, i_GCLK=self.cd_sys.clk,
                                   i_LOCKED=pll_lckd,
-                                  o_IOCLK=self.cd_sdram_full_wr.clk,
+                                  o_IOCLK=unbuf_cd_sdram_full_wr,
                                   o_SERDESSTROBE=self.clk4x_wr_strb)
+
+        self.specials += Instance("BUFG", name="xxx_pll_bufg", i_I=unbuf_cd_sdram_full_wr, o_O=self.cd_sdram_full_wr.clk)
+
         self.comb += [
             self.cd_sdram_full_rd.clk.eq(self.cd_sdram_full_wr.clk),
             self.clk4x_rd_strb.eq(self.clk4x_wr_strb),
@@ -169,10 +173,12 @@ class BaseSoC(SoCSDRAM):
             self.submodules.emulator_ram = wishbone.SRAM(size)
             self.register_mem("emulator_ram", self.mem_map["emulator_ram"], self.emulator_ram.bus, size)
 
+        pads = [platform.request("ddram_a"), platform.request("ddram_b")]
+
         # sdram
         sdram_module = MT47H32M16(self.clk_freq, "1:2")
         self.submodules.ddrphy = s6ddrphy.S6HalfRateDDRPHY(
-            platform.request("ddram_b"),
+            pads,
             sdram_module.memtype,
             rd_bitslip=0,
             wr_bitslip=4,
