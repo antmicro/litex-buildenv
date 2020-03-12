@@ -296,9 +296,9 @@ case $PLATFORM_TOOLCHAIN in
 			export HAVE_XILINX_TOOLCHAIN=0
 			export HAVE_FPGA_TOOLCHAIN=0
 		fi
-		if [ $HAVE_XILINX_TOOLCHAIN -eq 1 ]; then
-			export MISOC_EXTRA_CMDLINE="-Ob toolchain_path $XILINX_DIR/opt/Xilinx/"
-		fi
+		#if [ $HAVE_XILINX_TOOLCHAIN -eq 1 ]; then
+		#	export MISOC_EXTRA_CMDLINE="-Ob toolchain_path $XILINX_DIR/opt/Xilinx/"
+		#fi
 
 		# Detect a likely lack of license early, but just warn if it's missing
 		# just in case they've set it up elsewhere.
