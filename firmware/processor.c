@@ -549,6 +549,11 @@ static void fb_set_mode(const struct video_timing *mode)
 	hdmi_out0_core_initiator_length_write(mode->h_active*mode->v_active*2);
 
 	hdmi_out0_core_initiator_enable_write(hdmi_out0_enabled);
+
+    rtp_tx_dma_length_write(1024*768*2);
+    rtp_tx_dma_loop_write(1);
+    rtp_tx_dma_start_write(1);
+
 #endif
 
 #ifdef CSR_HDMI_OUT1_BASE
@@ -746,6 +751,23 @@ void processor_update(void)
 
 	if(processor_hdmi_out0_source == VIDEO_IN_ETH)
 		hdmi_out0_core_initiator_base_write(eth_stream_in_framebuffer_base(eth_stream_in_fb_index));
+#endif
+
+#ifdef CSR_RTP_TX_DMA_BASE
+#ifdef CSR_HDMI_IN0_BASE
+	if(processor_hdmi_out0_source == VIDEO_IN_HDMI_IN0)
+		rtp_tx_dma_base_write(hdmi_in0_framebuffer_base(hdmi_in0_fb_index));
+#endif
+#ifdef CSR_HDMI_IN1_BASE
+	if(processor_hdmi_out0_source == VIDEO_IN_HDMI_IN1)
+		rtp_tx_dma_base_write(hdmi_in1_framebuffer_base(hdmi_in1_fb_index));
+#endif
+#ifdef CSR_PCIE_PHY_BASE
+	if(processor_hdmi_out0_source == VIDEO_IN_PCIE)
+		rtp_tx_dma_base_write(pcie_in_framebuffer_base(pcie_in_fb_idx));
+#endif
+	if(processor_hdmi_out0_source == VIDEO_IN_PATTERN)
+		rtp_tx_dma_base_write(pattern_framebuffer_base());
 #endif
 
 #ifdef CSR_HDMI_OUT1_BASE
