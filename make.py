@@ -137,7 +137,7 @@ def main():
             buildargs['csr_json'] = os.path.join(testdir, "csr.json")
 
         builder = Builder(soc, **buildargs)
-        if not args.no_compile_firmware or args.override_firmware:
+        if False and not args.no_compile_firmware or args.override_firmware:
             builder.add_software_package("uip", "{}/firmware/uip".format(os.getcwd()))
 
             # FIXME: All platforms which current run their user programs from
