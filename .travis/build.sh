@@ -182,6 +182,8 @@ function build() {
 	fi
 	echo "============================================="
 
+	echo "current PATH is: $PATH"
+
 	case "$FIRMWARE" in
 	linux)
 		echo ""
