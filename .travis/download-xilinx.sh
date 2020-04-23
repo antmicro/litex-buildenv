@@ -62,6 +62,7 @@ fi
 
 XILINX_SETTINGS_ISE='/opt/Xilinx/*/ISE_DS/settings64.sh'
 XILINX_SETTINGS_VIVADO='/opt/Xilinx/Vivado/*/settings64.sh'
+XILINX_BINDIR='/opt/Xilinx/Vivado/*/bin'
 
 if [ -z "$XILINX_DIR" ]; then
 	LOCAL_XILINX_DIR=$BUILD_DIR/Xilinx
@@ -83,6 +84,7 @@ fi
 shopt -s nullglob
 XILINX_SETTINGS_ISE=($XILINX_DIR/$XILINX_SETTINGS_ISE)
 XILINX_SETTINGS_VIVADO=($XILINX_DIR/$XILINX_SETTINGS_VIVADO)
+XILINX_BINDIR=($XILINX_DIR/$XILINX_BINDIR)
 shopt -u nullglob
 
 echo "        Xilinx directory is: $XILINX_DIR/opt/Xilinx/"
@@ -112,7 +114,10 @@ else
 	export HAVE_XILINX_TOOLCHAIN=0
 fi
 if [ $HAVE_XILINX_TOOLCHAIN -eq 1 ]; then
-	export MISOC_EXTRA_CMDLINE="-Ob toolchain_path $XILINX_DIR/opt/Xilinx/"
+        echo "Adding Xilinx directory to PATH"
+        for P in ${XILINX_BINDIR[@]}; do
+	 	export PATH="$XILINX_DIR/$P:$PATH"
+        done
 fi
 
 # Detect a likely lack of license early, but just warn if it's missing
