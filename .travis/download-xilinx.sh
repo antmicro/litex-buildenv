@@ -118,6 +118,7 @@ if [ $HAVE_XILINX_TOOLCHAIN -eq 1 ]; then
         for P in ${XILINX_BINDIR[@]}; do
 	 	export PATH="$XILINX_DIR/$P:$PATH"
         done
+        echo "PATH is now: $PATH"
 fi
 
 # Detect a likely lack of license early, but just warn if it's missing
