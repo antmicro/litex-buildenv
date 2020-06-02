@@ -657,6 +657,33 @@ echo "Installing robotframework (python module)"
 pip install robotframework==3.0.4
 check_import robot
 
+(
+cd $THIRD_DIR
+
+if [ ! -d pythondata-software-compiler_rt ]; then
+    git clone https://github.com/litex-hub/pythondata-software-compiler_rt.git
+fi
+
+cd pythondata-software-compiler_rt
+echo "Installing pythondata-software-compiler_rt (local python module)"
+python setup.py develop
+cd ..
+
+check_import pythondata_software_compiler_rt
+
+
+if [ ! -d pythondata-cpu-$CPU ]; then
+    git clone https://github.com/litex-hub/pythondata-cpu-$CPU.git
+fi
+
+cd pythondata-cpu-$CPU
+echo "Installing pythondata-cpu-$CPU (local python module)"
+python setup.py develop
+cd ..
+
+check_import pythondata_cpu_$CPU
+)
+
 # git commands
 echo ""
 echo "Updating git config"
