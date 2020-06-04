@@ -27,7 +27,7 @@ class BaseSoC(SoCSDRAM):
 
     def __init__(self, platform, **kwargs):
         dict_set_max(kwargs, 'integrated_sram_size', 0x4000)
-
+        
         # disable ROM, it'll be added later
         kwargs['integrated_rom_size'] = 0x0
         kwargs['cpu_reset_address']=self.mem_map["spiflash"]+platform.gateware_size
@@ -99,7 +99,11 @@ class BaseSoC(SoCSDRAM):
             self.mem_map["spiflash"],
             platform.spiflash_total_size)
 
-        bios_size = 0x8000
+        if kwargs.get('cpu_type', None) == "mor1kx":
+            bios_size = 0x14000
+        else:
+            bios_size = 0x10000
+
         self.add_constant("ROM_DISABLE", 1)
         self.add_memory_region(
             "rom", kwargs['cpu_reset_address'], bios_size,
