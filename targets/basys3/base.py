@@ -19,7 +19,7 @@ class BaseSoC(SoCCore):
     }}
 
     def __init__(self, platform, spiflash="spiflash_1x", **kwargs):
-       if kwargs.get('cpu_type', None) == 'mor1kx':
+        if kwargs.get('cpu_type', None) == 'mor1kx':
             dict_set_max(kwargs, 'integrated_rom_size', 0x10000)
         else:
             dict_set_max(kwargs, 'integrated_rom_size', 0x8000)
