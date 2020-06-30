@@ -3,6 +3,7 @@ from litex.soc.integration.soc_core import mem_decoder
 from liteeth.phy.model import LiteEthPHYModel
 from liteeth.core.mac import LiteEthMAC
 
+from targets.utils import dict_set_max
 from targets.sim.base import BaseSoC
 
 
@@ -12,6 +13,9 @@ class NetSoC(BaseSoC):
     }}
 
     def __init__(self, *args, **kwargs):
+        # Need a larger integrated ROM to fit the BIOS with TFTP support.
+        dict_set_max(kwargs, 'integrated_rom_size', 0x10000)
+
         BaseSoC.__init__(self, *args, **kwargs)
 
         self.submodules.ethphy = LiteEthPHYModel(self.platform.request("eth"))
