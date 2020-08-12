@@ -60,6 +60,12 @@ RENODE_REPL="$RENODE_SCRIPTS_DIR/litex_buildenv.repl"
 mkdir -p $RENODE_SCRIPTS_DIR
 
 if [ "$FIRMWARE" = "linux" ] && [ "$CPU" = "vexriscv" ]; then
+    echo "-----"
+    echo "DT:::"
+    dtc $TOP_DIR/$TARGET_BUILD_DIR/software/linux/rv32.dtb
+    echo "-----"
+
+
 	RENODE_CONFIG="--tftp-binary \"$TOP_DIR/$TARGET_BUILD_DIR/software/linux/firmware.bin:Image\"
 		--tftp-binary \"$TOP_DIR/$TARGET_BUILD_DIR/software/linux/riscv32-rootfs.cpio:rootfs.cpio\"
 		--tftp-binary \"$TOP_DIR/$TARGET_BUILD_DIR/software/linux/rv32.dtb\"
