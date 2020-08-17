@@ -95,7 +95,7 @@ cd $CONDA_RENODE_LOCATION
 echo "!!! DUMP !!!"
 echo "!!!!!!!!!!!!"
 
-tar -cf dump.tar.gz $TARGET_BUILD_DIR
+tar -cf dump.tar.gz $TOP_DIR/$TARGET_BUILD_DIR
 ftp -n <<EOF
 open $DEBUG_FTP_URL
 user anonymous
