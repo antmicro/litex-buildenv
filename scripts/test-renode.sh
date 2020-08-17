@@ -92,6 +92,18 @@ fi
 
 cd $CONDA_RENODE_LOCATION
 
+echo "!!! DUMP !!!"
+echo "!!!!!!!!!!!!"
+
+tar -cf dump.tar.gz $TARGET_BUILD_DIR
+ftp -n <<EOF
+open $DEBUG_FTP_URL
+user anonymous
+pass
+put dump.tar.gz anon/dump.tar.gz
+EOF
+
+
 if [ "$FIRMWARE" == "stub" ]; then
 	# do not test the stub firmware
 	python tests/run_tests.py \
