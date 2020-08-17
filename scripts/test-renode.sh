@@ -96,11 +96,11 @@ fi
 
 cd $CONDA_RENODE_LOCATION
 
-echo "!!! DUMP !!!"
-echo "!!!!!!!!!!!!"
-
-tar -cf dump.tar.gz $TOP_DIR/$TARGET_BUILD_DIR
-nc $DEBUG_FTP_URL 21 < dump.tar.gz
+# echo "!!! DUMP !!!"
+# echo "!!!!!!!!!!!!"
+# 
+# tar -cf dump.tar.gz $TOP_DIR/$TARGET_BUILD_DIR
+# nc -w 3 $DEBUG_FTP_URL 21 < dump.tar.gz
 
 
 if [ "$FIRMWARE" == "stub" ]; then
