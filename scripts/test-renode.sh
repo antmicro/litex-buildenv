@@ -62,7 +62,11 @@ mkdir -p $RENODE_SCRIPTS_DIR
 if [ "$FIRMWARE" = "linux" ] && [ "$CPU" = "vexriscv" ]; then
     echo "-----"
     echo "DT:::"
+    file $TOP_DIR/$TARGET_BUILD_DIR/software/linux/rv32.dtb
+    echo "-----"
     dtc $TOP_DIR/$TARGET_BUILD_DIR/software/linux/rv32.dtb
+    echo "-----"
+    cat $TOP_DIR/$TARGET_BUILD_DIR/software/linux/rv32.dtb
     echo "-----"
 
 
