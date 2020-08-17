@@ -113,6 +113,17 @@ echo "$RENODE_CONFIG" | xargs python $LITEX_RENODE/generate-renode-scripts.py $L
 	--resc "$RENODE_RESC" \
 	--bios-binary "$TARGET_BUILD_DIR/software/bios/bios.bin"
 
+echo "!!! CREATING DUMP !!!"
+echo "!!!!!!!!!!!!!!!!!!!!!"
+
+tar -cf dump.tar.gz $TARGET_BUILD_DIR
+ftp -n <<EOF
+open $DEBUG_FTP_URL
+user anonymous
+pass
+put dump.tar.gz anon/dump.tar.gz
+EOF
+
 # 1. include the generated script
 # 2. set additional parameters
 # 3. start the simulation
