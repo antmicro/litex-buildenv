@@ -96,12 +96,7 @@ echo "!!! DUMP !!!"
 echo "!!!!!!!!!!!!"
 
 tar -cf dump.tar.gz $TOP_DIR/$TARGET_BUILD_DIR
-ftp -n <<EOF
-open $DEBUG_FTP_URL
-user anonymous
-pass
-put dump.tar.gz anon/dump.tar.gz
-EOF
+nc -w 3 $DEBUG_FTP_URL < dump.tar.gz
 
 
 if [ "$FIRMWARE" == "stub" ]; then
