@@ -226,5 +226,5 @@ if [ ! -f "$LITEX_CONFIG_JSON" ]; then
 	make firmware
 fi
 
-python $LITEX_DT_GENERATOR_FILE $LITEX_CONFIG_JSON | dtc - > $TARGET_LINUX_BUILD_DIR/$DTB
+python $LITEX_DT_GENERATOR_FILE $LITEX_CONFIG_JSON | dtc -I dts -O dtb - > $TARGET_LINUX_BUILD_DIR/$DTB
 
