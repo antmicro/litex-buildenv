@@ -56,15 +56,16 @@ if git rev-parse --is-shallow-repository; then
 fi
 git fetch origin --tags
 
-TRAVIS_COMMIT_ACTUAL=$(git log --pretty=format:'%H' -n 1)
+GITHUB_COMMIT_ACTUAL=$(git log --pretty=format:'%H' -n 1)
 
-if [ z"$TRAVIS_PULL_REQUEST_SLUG" != z ]; then
+if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+	GITHUB_PR_NUMBER = $(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
 	echo ""
 	echo ""
 	echo ""
 	echo "- Fetching from pull request source"
 	echo "---------------------------------------------"
-	git remote add source https://github.com/$TRAVIS_PULL_REQUEST_SLUG.git
+	git remote add source https://github.com/$GITHUB_PR_NUMBER.git
 	git fetch source && git fetch --tags
 
 	echo ""
@@ -72,27 +73,27 @@ if [ z"$TRAVIS_PULL_REQUEST_SLUG" != z ]; then
 	echo ""
 	echo "- Fetching the actual pull request"
 	echo "---------------------------------------------"
-	git fetch origin pull/$TRAVIS_PULL_REQUEST/head:pull-$TRAVIS_PULL_REQUEST-head
-	git fetch origin pull/$TRAVIS_PULL_REQUEST/merge:pull-$TRAVIS_PULL_REQUEST-merge
+	git fetch origin pull/$GITHUB_PR_NUMBER/head:pull-$GITHUB_PR_NUMBER-head
+	git fetch origin pull/$GITHUB_PR_NUMBER/merge:pull-$GITHUB_PR_NUMBER-merge
 	echo "---------------------------------------------"
-	git log -n 5 --graph pull-$TRAVIS_PULL_REQUEST-head
+	git log -n 5 --graph pull-$GITHUB_PR_NUMBER-head
 	echo "---------------------------------------------"
-	git log -n 5 --graph pull-$TRAVIS_PULL_REQUEST-merge
+	git log -n 5 --graph pull-$GITHUB_PR_NUMBER-merge
 	echo "---------------------------------------------"
 
-	GITHUB_CURRENT_MERGE_SHA1="$(git log --pretty=format:'%H' -n 1 pull-$TRAVIS_PULL_REQUEST-merge)"
-	if [ "$GITHUB_CURRENT_MERGE_SHA1" != "$TRAVIS_COMMIT" ]; then
+	GITHUB_CURRENT_MERGE_SHA1="$(git log --pretty=format:'%H' -n 1 pull-$GITHUB_PR_NUMBER-merge)"
+	if [ "$GITHUB_CURRENT_MERGE_SHA1" != "$GITHUB_SHA" ]; then
 		echo ""
 		echo ""
 		echo ""
-		echo "- Pull request triggered for $TRAVIS_COMMIT but now at $GITHUB_CURRENT_MERGE_SHA1"
+		echo "- Pull request triggered for $GITHUB_SHA but now at $GITHUB_CURRENT_MERGE_SHA1"
 		echo ""
 	fi
-	if [ "$GITHUB_CURRENT_MERGE_SHA1" != "$TRAVIS_COMMIT_ACTUAL" ]; then
+	if [ "$GITHUB_CURRENT_MERGE_SHA1" != "$GITHUB_COMMIT_ACTUAL" ]; then
 		echo ""
 		echo ""
 		echo ""
-		echo "- Pull request triggered for $TRAVIS_COMMIT_ACTUAL but now at $GITHUB_CURRENT_MERGE_SHA1"
+		echo "- Pull request triggered for $GITHUB_COMMIT_ACTUAL but now at $GITHUB_CURRENT_MERGE_SHA1"
 		echo ""
 	fi
 
@@ -101,19 +102,19 @@ if [ z"$TRAVIS_PULL_REQUEST_SLUG" != z ]; then
 	echo ""
 	echo "- Using pull request version of submodules (if they exist)"
 	echo "---------------------------------------------"
-	$PWD/.travis/add-local-submodules.sh $TRAVIS_PULL_REQUEST_SLUG
+	$PWD/.github/scripts/add-local-submodules.sh $GITHUB_REPOSITORY
 	echo "---------------------------------------------"
 	git submodule foreach --recursive 'git remote -v; echo'
 	echo "---------------------------------------------"
 fi
 
-if [ z"$TRAVIS_REPO_SLUG" != z ]; then
+if [ z"$GITHUB_REPOSITORY" != z ]; then
 	echo ""
 	echo ""
 	echo ""
 	echo "- Using local version of submodules (if they exist)"
 	echo "---------------------------------------------"
-	$PWD/.travis/add-local-submodules.sh $TRAVIS_REPO_SLUG
+	$PWD/.github/scripts/add-local-submodules.sh $GITHUB_REPOSITORY
 	echo "---------------------------------------------"
 	git submodule foreach --recursive 'git remote -v; echo'
 	echo "---------------------------------------------"
@@ -123,25 +124,25 @@ echo "---------------------------------------------"
 git submodule status --recursive
 echo "---------------------------------------------"
 
-if [ "$TRAVIS_COMMIT_ACTUAL" != "$TRAVIS_COMMIT" ]; then
+if [ "$GITHUB_COMMIT_ACTUAL" != "$GITHUB_SHA" ]; then
 	echo ""
 	echo ""
 	echo ""
-	echo "- Build request triggered for $TRAVIS_COMMIT but got $TRAVIS_COMMIT_ACTUAL"
+	echo "- Build request triggered for $GITHUB_SHA but got $GITHUB_COMMIT_ACTUAL"
 	echo ""
-	TRAVIS_COMMIT=$TRAVIS_COMMIT_ACTUAL
+	GITHUB_SHA=$GITHUB_COMMIT_ACTUAL
 fi
 
-if [ z"$TRAVIS_BRANCH" != z ]; then
+if [ z"$GITHUB_BRANCH" != z ]; then
 	echo ""
 	echo ""
 	echo ""
-	echo "Fixing detached head (current $TRAVIS_COMMIT_ACTUAL)"
+	echo "Fixing detached head (current $GITHUB_COMMIT_ACTUAL)"
 	echo "---------------------------------------------"
 	git log -n 5 --graph
 	echo "---------------------------------------------"
-	git branch -D $TRAVIS_BRANCH || true
-	git checkout $TRAVIS_COMMIT_ACTUAL -b $TRAVIS_BRANCH
+	git branch -D $GITHUB_BRANCH || true
+	git checkout $GITHUB_COMMIT_ACTUAL -b $GITHUB_BRANCH || true
 	git branch -v
 fi
 echo ""

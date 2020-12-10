@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # Script to clone prebuilt repo to copy results into.
+GITHUB_PR_NUMBER = $(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
 
-if [ ! -z "$TRAVIS" -a "$TRAVIS" = "true" ]; then
+if [ ! -z "$GITHUB_ACTIONS" -a "$GITHUB_ACTIONS" = "true" ]; then
 	# Don't clone prebuilt on a pull request.
-	if [ ! -z "$TRAVIS_PULL_REQUEST" -a "$TRAVIS_PULL_REQUEST" != "false" ]; then
+	if [ ! -z "$GITHUB_PR_NUMBER" -a "$GITHUB_PR_NUMBER" != "false" ]; then
 		echo ""
 		echo ""
 		echo ""
@@ -18,23 +19,23 @@ if [ ! -z "$TRAVIS" -a "$TRAVIS" = "true" ]; then
 		echo "- No Github token (GH_TOKEN) so unable to push built files"
 
 	# Don't clone if we don't know which branch we are on
-	elif [ -z "$TRAVIS_BRANCH" ]; then
+	elif [ -z "$GITHUB_BRANCH" ]; then
 		echo ""
 		echo ""
 		echo ""
-		echo "- No branch name (\$TRAVIS_BRANCH), unable to copy built files"
+		echo "- No branch name (\$GITHUB_BRANCH), unable to copy built files"
 
 	# Don't clone if we don't know which repo we are using
-	elif [ -z "$TRAVIS_REPO_SLUG" ]; then
+	elif [ -z "$GITHUB_REPOSITORY" ]; then
 		echo ""
 		echo ""
 		echo ""
-		echo "- No repo slug name (\$TRAVIS_REPO_SLUG), unable to copy built files"
+		echo "- No repo slug name (\$GITHUB_REPOSITORY), unable to copy built files"
 
 	else
 		# Look at repo we are running in to determine where to try pushing to if in a fork
 		PREBUILT_REPO=HDMI2USB-firmware-prebuilt
-		PREBUILT_REPO_OWNER=$(echo $TRAVIS_REPO_SLUG|awk -F'/' '{print $1}')
+		PREBUILT_REPO_OWNER=$(echo $GITHUB_REPOSITORY|awk -F'/' '{print $1}')
 	fi
 fi
 
@@ -76,7 +77,7 @@ else
 			fi
 			svn update -r$SVN_REVISION --set-depth infinity $I
 		done
-		svn update -r$SVN_REVISION --set-depth immediates archive/$TRAVIS_BRANCH/
+		svn update -r$SVN_REVISION --set-depth immediates archive/$GITHUB_BRANCH/
 		echo ""
 		PREBUILT_DIR_DU=$(du -h -s . | sed -e's/[ \t]*\.$//')
 		echo "Prebuilt repo checkout is using $PREBUILT_DIR_DU"

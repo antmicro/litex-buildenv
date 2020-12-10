@@ -10,7 +10,7 @@ import urllib.request
 
 import subprocess
 
-slug = os.getenv("TRAVIS_REPO_SLUG", None)
+slug = os.getenv("GITHUB_REPOSITORY", None)
 prebuilt_repo_name = 'HDMI2USB-firmware-prebuilt'
 if slug:
     prebuilt_repo_owner = slug.split('/',1)[0]
@@ -25,7 +25,7 @@ parser.add_argument(
 parser.add_argument(
     '--owner', default=prebuilt_repo_owner)
 parser.add_argument(
-    '--branch', default=os.getenv('TRAVIS_BRANCH', None))
+    '--branch', default=os.getenv('GITHUB_BRANCH', None))
 parser.add_argument(
     '--full-platform', default=os.getenv('FULL_PLATFORM', None))
 parser.add_argument(
@@ -248,7 +248,7 @@ else:
     print("Committing changes...")
 
     with tempfile.NamedTemporaryFile() as f:
-        f.write("Updating channels (in Travis build {})\n".format(os.getenv("TRAVIS_BUILD_NUMBER", "None")).encode('utf-8'))
+        f.write("Updating channels (in Github Actions build {})\n".format(os.getenv("GITHUB_RUN_NUMBER", "None")).encode('utf-8'))
         f.flush()
 
         subprocess.check_call("svn commit {} --file {}".format(svn_args, f.name).split())

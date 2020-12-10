@@ -14,7 +14,7 @@ fi
 # Check for the Xilinx toolchain being downloaded
 export XILINX_LOCAL_USER_DATA=no
 
-GIT_REVISION=$TRAVIS_BRANCH/$(git describe)
+GIT_REVISION=$GITHUB_BRANCH/$(git describe)
 ORIG_COMMITTER_NAME=$(git log -1 --pretty=%an)
 ORIG_COMMITTER_EMAIL=$(git log -1 --pretty=%ae)
 
@@ -155,7 +155,7 @@ function build() {
 	# https://github.com/timvideos/HDMI2USB-misoc-firmware/issues/83
 	# We have to clean after doing this otherwise if the gateware
 	# has a dependency on the firmware that isn't correctly working
-	# the travis build will still pass.
+	# the Github Actions build will still pass.
 	echo ""
 	echo ""
 	echo ""
@@ -177,7 +177,7 @@ function build() {
 		# use timeout to prevent waiting here forever.
 		# FIXME: Should this be in the Makefile instead?
 		echo "Using $GATEWARE_TIMEOUT timeout (with '$GATEWARE_TIMEOUT_CMD')."
-		export FILTER=$PWD/.travis/run-make-gateware-filter.py
+		export FILTER=$PWD/.github/scripts/run-make-gateware-filter.py
 		$GATEWARE_TIMEOUT_CMD time --verbose make gateware || exit 1
 	fi
 	echo "============================================="
@@ -321,10 +321,10 @@ function build() {
 		echo $PWD
 		COMMIT_MSG=$(tempfile -s .msg)
 		cat > $COMMIT_MSG <<EOF
-Travis build #$TRAVIS_BUILD_NUMBER of $GIT_REVISION for PLATFORM=$FULL_PLATFORM TARGET=$TARGET CPU=$FULL_CPU FIRMWARE=$FIRMWARE
+Github Actions build #$GITHUB_RUN_NUMBER of $GIT_REVISION for PLATFORM=$FULL_PLATFORM TARGET=$TARGET CPU=$FULL_CPU FIRMWARE=$FIRMWARE
 
-From https://github.com/$TRAVIS_REPO_SLUG/tree/$TRAVIS_COMMIT
-$TRAVIS_COMIT_MESSAGE
+From https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA
+$GITHUB_COMMIT_MESSAGE
 EOF
 		svn commit \
 			--file $COMMIT_MSG \
@@ -375,7 +375,7 @@ EOF
 }
 
 export FUNC=build
-. .travis/run.inc.sh
+. .github/scripts/run.inc.sh
 
 echo ""
 echo ""

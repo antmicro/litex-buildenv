@@ -20,7 +20,7 @@ git submodule status
 echo
 git submodule status | sed -e's/^.//'  | while read SHA1 MODULE_PATH DESC
 do
-	"$PWD/.travis/add-local-submodule-inner.sh" "$USER_SLUG" "$MODULE_PATH" "$SHA1"
+	"$PWD/.github/scripts/add-local-submodule-inner.sh" "$USER_SLUG" "$MODULE_PATH" "$SHA1"
 done
 echo
 git submodule status --recursive

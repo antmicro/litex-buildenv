@@ -1,0 +1,159 @@
+name: antmicro
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ubuntu-18.04
+    continue-on-error: ${{ matrix.coe }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {C: lm32,             TC: "vivado",    P: arty,              T: "base net",     coe: false}
+          - {C: lm32,             TC: "vivado",    P: basys3,            T: "base",         coe: false}
+          - {C: lm32,             TC: "vivado",    P: cmod_a7,           T: "base",         coe: false}
+          - {C: lm32,             TC: "vivado",    P: mimas_a7,          T: "base net",     coe: false}
+          - {C: lm32,             TC: "vivado",    P: neso,              T: "base",         coe: false}
+          - {C: lm32,             TC: "vivado",    P: nexys_video,       T: "base net",     coe: false}
+          - {C: lm32,             TC: "ise",       P: atlys,             T: "base net",     coe: false}
+          - {C: lm32,             TC: "ise",       P: galatea,           T: "base",         coe: false}
+          - {C: lm32,             TC: "ise",       P: matrix_voice,      T: "base",         coe: false}
+          - {C: lm32,             TC: "ise",       P: mimasv2,           T: "base",         coe: false}
+          - {C: lm32,             TC: "ise",       P: minispartan6,      T: "base",         coe: false}
+          - {C: lm32,             TC: "ise",       P: opsis,             T: "base net",     coe: false}
+          - {C: lm32,             TC: "ise",       P: pipistrello,       T: "base",         coe: false}
+          - {C: lm32,             TC: "ise",       P: saturn,            T: "base",         coe: false}
+          - {C: lm32,             TC: "ise",       P: waxwing,           T: "base",         coe: false}
+          - {C: lm32.lite,        TC: "icestorm",  P: ice40_up5k_b_evn,  T: "base",         coe: false,     F: stub}
+          - {C: lm32.lite,        TC: "icestorm",  P: ice40_hx8k_b_evn,  T: "base",         coe: false,     F: stub}
+          - {C: lm32.lite,        TC: "icestorm",  P: icebreaker,        T: "base",         coe: false,     F: stub}
+          - {C: lm32.lite,        TC: "icestorm",  P: tinyfpga_bx,       T: "base",         coe: false,     F: stub}
+          - {C: lm32.lite,        TC: "icestorm",  P: upduino_v1,        T: "base",         coe: false,     F: stub}
+          - {C: lm32.lite,        TC: "icestorm",  P: icefun,            T: "base",         coe: false,     F: stub}
+          - {C: lm32.lite,        TC: "vivado",    P: arty,              T: "base net",     coe: false}
+          - {C: lm32.lite,                         P: opsis,             T: "base net",     coe: false}
+          - {C: lm32.minimal,     TC: "icestorm",  P: ice40_hx8k_b_evn,  T: "base",         coe: false,     F: stub}
+          - {C: lm32.minimal,     TC: "icestorm",  P: ice40_up5k_b_evn,  T: "base",         coe: false,     F: stub}
+          - {C: lm32.minimal,     TC: "icestorm",  P: icebreaker,        T: "base",         coe: false,     F: stub}
+          - {C: lm32.minimal,     TC: "icestorm",  P: tinyfpga_bx,       T: "base",         coe: false,     F: stub}
+          - {C: lm32.minimal,     TC: "icestorm",  P: upduino_v1,        T: "base",         coe: false,     F: stub}
+          - {C: lm32.minimal,     TC: "icestorm",  P: icefun,            T: "base",         coe: false,     F: stub}
+          - {C: lm32.minimal,     TC: "vivado",    P: arty,              T: "base net",     coe: false}
+          - {C: lm32.minimal,     TC: "ise",       P: opsis,             T: "base net",     coe: false}
+          # OpenRISC1000
+          - {C: mor1kx,           TC: "vivado",    P: arty,              T: "base net",     coe: false}
+          - {C: mor1kx,           TC: "vivado",    P: mimas_a7,          T: "base net",     coe: false}
+          - {C: mor1kx,           TC: "vivado",    P: atlys,             T: "base net",     coe: false}
+          - {C: mor1kx,           TC: "ise",       P: mimasv2,           T: "base",         coe: false}
+          - {C: mor1kx,           TC: "ise",       P: opsis,             T: "base net",     coe: false}
+          - {C: mor1kx,           TC: "ise",       P: pipistrello,       T: "base",         coe: false}
+          # VexRISCV
+          - {C: vexriscv,         TC: "vivado",    P: netv2,             T: "base net",     coe: true} # Allowed to fail
+          - {C: vexriscv,         TC: "vivado",    P: arty,              T: "base net",     coe: false}
+          - {C: vexriscv,         TC: "vivado",    P: mimas_a7,          T: "base net",     coe: false}
+          - {C: vexriscv,         TC: "ise",       P: mimasv2,           T: "base",         coe: false}
+          - {C: vexriscv,         TC: "ise",       P: opsis,             T: "base net",     coe: false}
+          - {C: vexriscv.lite,    TC: "icestorm",  P: ice40_hx8k_b_evn,  T: "base",         coe: false,     F: stub}
+          - {C: vexriscv.lite,    TC: "icestorm",  P: ice40_up5k_b_evn,  T: "base",         coe: false,     F: stub}
+          - {C: vexriscv.lite,    TC: "icestorm",  P: icebreaker,        T: "base",         coe: false,     F: stub}
+          - {C: vexriscv.lite,    TC: "icestorm",  P: tinyfpga_bx,       T: "base",         coe: false,     F: stub}
+          - {C: vexriscv.lite,    TC: "icestorm",  P: upduino_v1,        T: "base",         coe: false,     F: stub}
+          - {C: vexriscv.lite,    TC: "icestorm",  P: icefun,            T: "base",         coe: false,     F: stub}
+          - {C: vexriscv.lite,    TC: "vivado",    P: arty,              T: "base net",     coe: false}
+          - {C: vexriscv.lite,    TC: "ise",       P: matrix_voice,      T: "base",         coe: false}
+          - {C: vexriscv.lite,    TC: "ise",       P: opsis,             T: "base net",     coe: false}
+          - {C: vexriscv.lite,    TC: "ise",       P: pano_logic_g2,     T: "base",         coe: false}
+          # PicoRV32
+          - {C: picorv32,         TC: "vivado",    P: arty,              T: "base net",     coe: false}
+          - {C: picorv32,         TC: "vivado",    P: mimas_a7,          T: "base net",     coe: false}
+          - {C: picorv32,         TC: "ise",       P: opsis,             T: "base net",     coe: false}
+          - {C: picorv32.minimal, TC: "icestorm",  P: icebreaker,        T: "base",         coe: false,     F: stub}
+          - {C: picorv32.minimal, TC: "vivado",    P: arty,              T: "base net",     coe: false}
+          - {C: picorv32.minimal, TC: "ise",       P: matrix_voice,      T: "base",         coe: false}
+          - {C: picorv32.minimal, TC: "ise",       P: opsis,             T: "base net",     coe: false}
+          - {C: picorv32.minimal, TC: "icestorm",  P: fomu,              T: "base",         coe: false,     F: stub}
+          # minerva target
+          - {C: minerva,          TC: "vivado",    P: arty,              T: "base net",     coe: false}
+          - {C: minerva,          TC: "ise",       P: opsis,             T: "base net",     coe: false}
+          #--------------------------------------------
+          # Video Targets
+          #--------------------------------------------
+          - {C: lm32,             TC: "vivado",    P: nexys_video,       T: "video",        coe: false}
+          - {C: lm32,             TC: "ise",       P: atlys,             T: "video",        coe: true} # Allowed to fail
+          - {C: lm32,             TC: "ise",       P: opsis,             T: "video",        coe: true} # Allowed to fail
+          #--------------------------------------------
+          # HDMI2USB Targets
+          #--------------------------------------------
+          - {C: lm32,             TC: "ise",       P: atlys,             T: "hdmi2usb",     coe: false}
+          - {C: lm32,             TC: "ise",       P: opsis,             T: "hdmi2usb",     coe: false}
+          #--------------------------------------------
+          # HDMI2USB Targets
+          #--------------------------------------------
+          - {C: vexriscv,         TC: "vivado",    P: netv2,             T: "hdmi2pcie",    coe: true} # Allowed to fail
+          #--------------------------------------------
+          # MicroPython Targets
+          #--------------------------------------------
+          # FIXME: Add some here
+          - {C: vexriscv,         TC: "vivado",    P: arty,              T: "base",         coe: false,     F: "micropython"}
+          #--------------------------------------------
+          # Linux Targets
+          #--------------------------------------------
+          - {C: mor1kx.linux,     TC: "vivado",    P: arty,              T: "net",          coe: false,     F: "linux"}
+          - {C: mor1kx.linux,     TC: "vivado",    P: nexys_video,       T: "net",          coe: true,      F: "linux"} # Allowed to fail
+          - {C: mor1kx.linux,     TC: "ise",       P: atlys,             T: "net",          coe: false,     F: "linux"}
+          - {C: mor1kx.linux,     TC: "ise",       P: opsis,             T: "net",          coe: false,     F: "linux"}
+          # FIXME: Add vexriscv.linux
+          - {C: vexriscv.linux,   TC: "vivado",    P: arty,              T: "net",          coe: false,     F: "linux"}
+          - {C: vexriscv.linux,   TC: "ise",       P: opsis,             T: "net",          coe: false,     F: "linux"}
+          # FIXME: Add rocket.linux
+          #--------------------------------------------
+          # Zephyr Targets
+          #--------------------------------------------
+          - {C: vexriscv.lite,    TC: "icestorm",  P: icebreaker,        T: "base",         coe: false,     F: "zephyr"}
+          - {C: vexriscv.lite,    TC: "vivado",    P: arty,              T: "net",          coe: false,     F: "zephyr"}
+          - {C: vexriscv.lite,    TC: "ise",       P: atlys,             T: "net",          coe: false,     F: "zephyr"}
+        
+    env:
+      HDMI2USB_UDEV_IGNORE=1: 1
+      CLEAN_CHECK: 1
+      PREBUILT_DIR: "/tmp/HDMI2USB-firmware-prebuilt"
+      # Github Actions reports incorrect the hosts number of processors, override to 2 cores
+      JOBS: 2
+      C: ${{ matrix.C }}
+      TC: ${{ matrix.TC }}
+      P: ${{ matrix.P }}
+      T: ${{ matrix.T }}
+      F: ${{ matrix.F }}
+      GITHUB_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: false
+
+    - name: install packages
+      run: |
+        sudo apt update
+        sudo apt -qq -y install build-essential gnupg util-linux device-tree-compiler
+
+    - name: setup workspace
+      run: |
+        export CPUS="$C" && echo "CPUS='$CPUS'"
+        export PLATFORMS="$P" && echo "PLATFORMS='$PLATFORMS'"
+        export TARGETS="$T" && echo "TARGETS='$TARGETS'"
+        export FIRMWARE="$F" && echo "FIRMWARE='$FIRMWARE'"
+        source ./.github/scripts/setup.sh
+        echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
+        echo "PLATFORM_EXPANSION=$PLATFORM_EXPANSION" >> $GITHUB_ENV
+        echo "TARGET=$TARGET" >> $GITHUB_ENV
+        echo "CPU=$CPU" >> $GITHUB_ENV
+        echo "CPU_VARIANT=$CPU_VARIANT" >> $GITHUB_ENV
+        echo "FIRMWARE=$FIRMWARE" >> $GITHUB_ENV
+        echo "GITHUB_BRANCH=$GITHUB_BRANCH" >> $GITHUB_ENV
+
+    - name: build
+      run: source ./.github/scripts/build.sh
+
+    - name: after_success
+      run: source ./.github/scripts/update-prebuilt-list.sh
+      

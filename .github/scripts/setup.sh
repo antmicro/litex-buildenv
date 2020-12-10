@@ -2,9 +2,12 @@
 
 set -e
 
-./.travis/prevent-condarc.sh
+export GITHUB_BRANCH=${GITHUB_REF##*/}
+echo $GITHUB_BRANCH
 
-./.travis/fixup-git.sh
+./.github/scripts/prevent-condarc.sh
+
+./.github/scripts/fixup-git.sh
 
 function setup() {
 	SPLIT_REGEX="^\([^.]*\)\.\?\(.*\)\$"
@@ -78,7 +81,7 @@ function setup() {
 }
 
 export FUNC=setup
-source .travis/run.inc.sh
+source .github/scripts/run.inc.sh
 
 echo ""
 echo ""
@@ -111,4 +114,4 @@ else
 	echo "All setups succeeded! \\o/"
 fi
 
-./.travis/download-prebuilt.sh
+./.github/scripts/download-prebuilt.sh

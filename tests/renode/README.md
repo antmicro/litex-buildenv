@@ -17,7 +17,7 @@ configuration.
 
 ## CI integration
 
-Tests are run automatically in Travis CI.
+Tests are run automatically in Github Actions.
 
 ## Running tests manually
 

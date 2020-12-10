@@ -26,7 +26,7 @@ export PREFIX="/opt/Xilinx/"
 STRACE_LOG=$BASE/strace.log
 if [ ! -f $STRACE_LOG ]; then
 	echo "No strace log found at $STRACE_LOG"
-	echo "Please run ./.travis/package-xilinx-step1-trace.sh"
+	echo "Please run ./.github/scripts/package-xilinx-step1-trace.sh"
 	exit 1
 fi
 
@@ -44,7 +44,7 @@ echo "--------------------------------------"
 mkdir -p $XILINX_DIR
 #cat $STRACE_FILES | xargs -d '\n' \
 #	cp -v --parents --no-dereference --preserve=all -t $XILINX_DIR || true
-cat $STRACE_FILES | $TOP_DIR/.travis/copy-files.py $XILINX_DIR
+cat $STRACE_FILES | $TOP_DIR/.github/scripts/copy-files.py $XILINX_DIR
 echo "--------------------------------------"
 
 FILENAME="$BASE/xilinx-tools-$(git describe).tar.bz2"

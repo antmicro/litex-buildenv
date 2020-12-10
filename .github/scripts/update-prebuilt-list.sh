@@ -11,11 +11,11 @@ function prebuilt() {
 		unset $FIRMWARE
 	fi
 	export FIRMWARE
-	.travis/generate-prebuilt-list.py || return 1
+	.github/scripts/generate-prebuilt-list.py || return 1
 	return 0
 }
 
-if [ x"$TRAVIS_BRANCH" = x"master" ]; then
+if [ x"$GITHUB_BRANCH" = x"master" ]; then
 	echo ""
 	echo ""
 	echo ""
@@ -24,7 +24,7 @@ if [ x"$TRAVIS_BRANCH" = x"master" ]; then
 	for i in 1 2 3 4 5 6 7 8 9 10; do	# Try 10 times.
 		export FUNC=prebuilt
 
-		. .travis/run.inc.sh && :
+		. .github/scripts/run.inc.sh && :
 		FAILED=$?
 
 		if [ $FAILED -eq 0 ]; then
