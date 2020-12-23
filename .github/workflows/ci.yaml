@@ -125,6 +125,7 @@ jobs:
       T: ${{ matrix.T }}
       F: ${{ matrix.F }}
       GITHUB_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+      XILINX_PASSPHRASE: ${{ secrets.XILINX_PASSPHRASE }}
 
     steps:
     - uses: actions/checkout@v2
