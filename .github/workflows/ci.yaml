@@ -135,7 +135,7 @@ jobs:
     - name: install packages
       run: |
         sudo apt update
-        sudo apt -qq -y install build-essential gnupg util-linux device-tree-compiler
+        sudo apt -qq -y install build-essential gnupg util-linux device-tree-compiler libboost-python1.65.1
 
     - name: setup workspace
       run: |
