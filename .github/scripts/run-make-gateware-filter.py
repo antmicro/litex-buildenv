@@ -29,11 +29,11 @@ def output(s, *args, **kw):
 		keepalive_thread.output = True
 		if args:
 			assert not kw
-			data = (s % args).encode('utf-8')
+			data = (s % args)
 		elif kw:
-			data = (s % kw).encode('utf-8')
+			data = (s % kw)
 		else:
-			data = s.encode('utf-8')
+			data = s
 
 		if data:
 			sys.stdout.write(keepalive_thread.before_next_output)
