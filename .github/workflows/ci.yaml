@@ -3,7 +3,7 @@ on: [push, pull_request]
 
 jobs:
   tests:
-    runs-on: ubuntu-18.04
+    runs-on: debian
     continue-on-error: ${{ matrix.coe }}
     strategy:
       fail-fast: false
@@ -135,7 +135,7 @@ jobs:
     - name: install packages
       run: |
         sudo apt update
-        sudo apt -qq -y install build-essential gnupg util-linux device-tree-compiler libboost-python1.65.1
+        sudo apt -qq -y install build-essential gnupg util-linux device-tree-compiler libboost1.67-all-dev
 
     - name: setup workspace
       run: |
