@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import collections
 import os
@@ -94,7 +94,7 @@ fsm_triggered = False
 found_specials = []
 
 last_path = None
-for lineno, rawline in enumerate(sys.stdin.xreadlines()):
+for lineno, rawline in enumerate(sys.stdin):
 	log_file.write(rawline)
 	log_file.flush()
 
@@ -446,7 +446,7 @@ for lineno, rawline in enumerate(sys.stdin.xreadlines()):
 	if not keepalive_thread.output:
 		output(".")
 
-for lineno, rawline in enumerate(sys.stdin.xreadlines()):
+for lineno, rawline in enumerate(sys.stdin):
 	output(rawline)
 
 output("\n\n")
