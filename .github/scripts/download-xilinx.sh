@@ -45,7 +45,15 @@ if [ ! -z "$XILINX_PASSPHRASE" ]; then
 			wget --no-verbose http://xilinx.timvideos.us/Xilinx.lic.gpg
 			cat $XILINX_PASSPHRASE_FILE | gpg --batch --passphrase-fd 0 Xilinx.lic.gpg
 
+
+                        echo "before modprobing dummy"
+                        ip link
+                        sudo ip link
 			sudo modprobe dummy
+
+                        echo "after modprobing dummy"
+                        ip link
+                        sudo ip link
 			sudo ip link set name eth0 dev dummy0
 			sudo ifconfig eth0 hw ether 08:00:27:68:c9:35
 			#git clone https://github.com/mithro/impersonate_macaddress
