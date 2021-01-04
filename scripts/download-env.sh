@@ -74,6 +74,9 @@ set -e
 
 . $SETUP_DIR/settings.sh
 
+CONDA_FLAGS="$CONDA_FLAGS -c litex-hub"
+export CONDA_FLAGS
+
 # If we activate an environment, CONDA_PREFIX is set. Otherwise use CONDA_DIR.
 export CONDA_PREFIX="${CONDA_PREFIX:-$CONDA_DIR}"
 export CONDA_DIR=$CONDA_PREFIX
@@ -300,7 +303,7 @@ echo "---------------------------------------"
 # yosys
 echo
 echo "Installing yosys (FOSS Synthesis tool)"
-conda install -y $CONDA_FLAGS -c litex-hub yosys
+conda install -y $CONDA_FLAGS yosys
 check_exists yosys
 
 
