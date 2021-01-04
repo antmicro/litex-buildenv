@@ -300,7 +300,7 @@ echo "---------------------------------------"
 # yosys
 echo
 echo "Installing yosys (FOSS Synthesis tool)"
-conda install -y $CONDA_FLAGS yosys
+conda install -y $CONDA_FLAGS -c litex-hub yosys
 check_exists yosys
 
 
