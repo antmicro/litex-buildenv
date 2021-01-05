@@ -56,7 +56,7 @@ if [ ! -z "$XILINX_PASSPHRASE" ]; then
 			# sudo ip link set name eth0 dev dummy0
 			echo "before setting the mac address"
                         ip link
-			ifconfig eth0 hw ether 08:00:27:68:c9:35
+			ip link set dev eth0 address 08:00:27:68:c9:35
 			echo "after setting the mac address"
                         ip link
 			#git clone https://github.com/mithro/impersonate_macaddress
