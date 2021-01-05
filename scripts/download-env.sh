@@ -74,9 +74,6 @@ set -e
 
 . $SETUP_DIR/settings.sh
 
-CONDA_FLAGS="$CONDA_FLAGS -c litex-hub"
-export CONDA_FLAGS
-
 # If we activate an environment, CONDA_PREFIX is set. Otherwise use CONDA_DIR.
 export CONDA_PREFIX="${CONDA_PREFIX:-$CONDA_DIR}"
 export CONDA_DIR=$CONDA_PREFIX
@@ -273,7 +270,7 @@ export PATH=$CONDA_DIR/bin:$PATH:/sbin
 	pin_conda_package conda ${CONDA_VERSION}
 	conda update -q conda
 	fix_conda
-	conda config --system --add channels timvideos
+	conda config --system --add channels litex-hub
 	conda info
 )
 
